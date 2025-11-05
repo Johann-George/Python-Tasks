@@ -1,451 +1,667 @@
+import os
 import cv2
 import pytesseract
-from PIL import Image
 import numpy as np
+import pandas as pd
 
-# If tesseract is not in your PATH, specify the path (Windows example)
-# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# -------------------------------------------
+# Preprocessing (integrated)
+# -------------------------------------------
 
-def enhance_contrast(image):
+def preprocess_image(image_path, method='advanced', save_steps=False):
     """
-    Enhance contrast using CLAHE (Contrast Limited Adaptive Histogram Equalization)
-    Makes text stand out more clearly from the background
-    Returns the enhanced grayscale image
+    Returns: (original_bgr, processed_grayscale_or_binary, scale_factor)
+    method ∈ {'original','grayscale','contrast','bilateral','advanced','otsu','adaptive'}
+    scale_factor: ratio of processed image size to original (for coordinate conversion)
     """
-    # Convert to grayscale if needed
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image.copy()
-    
-    # Apply CLAHE - works well for documents with varying lighting
-    # clipLimit: Threshold for contrast limiting (higher = more contrast)
-    # tileGridSize: Size of grid for histogram equalization
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
-    
-    return enhanced
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image not found: {image_path}")
 
-def preprocess_image(image_path, method='original', save_steps=False):
-    """
-    Preprocessing for document OCR
-    
-    Available methods:
-    - 'original': No processing (best for high-quality scans)
-    - 'grayscale': Just grayscale conversion
-    - 'contrast': Enhance contrast using CLAHE
-    - 'otsu': Binary thresholding with Otsu's method
-    - 'adaptive': Adaptive thresholding (good for uneven lighting)
-    """
-    # Read the image
-    img = cv2.imread(image_path)
-    
-    if img is None:
-        raise ValueError(f"Could not read image at {image_path}")
-    
+    img_bgr = cv2.imread(image_path)
+    if img_bgr is None:
+        raise ValueError(f"cv2.imread failed for: {image_path}")
+
+    def to_gray(img):
+        return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    def clahe(gray, clip=3.0, tile=(8, 8)):
+        c = cv2.createCLAHE(clipLimit=clip, tileGridSize=tile)
+        return c.apply(gray)
+
+    def upscale(gray, scale=1.5):
+        return cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+
+    def denoise(gray):
+        return cv2.fastNlMeansDenoising(gray, h=12, templateWindowSize=7, searchWindowSize=21)
+
+    def binarize_otsu(gray):
+        _, th = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        return th
+
+    def binarize_adaptive(gray):
+        return cv2.adaptiveThreshold(
+            gray, 255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,
+            31, 8
+        )
+
+    scale_factor = 1.0  # Track the scale factor for coordinate conversion
+
     if method == 'original':
-        # NO PROCESSING - Use original image directly
-        processed = img
-        if save_steps:
-            cv2.imwrite('step1_original_kept.jpg', img)
-    
+        processed = to_gray(img_bgr)
+
     elif method == 'grayscale':
-        # Just convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        processed = gray
-        if save_steps:
-            cv2.imwrite('step1_grayscale.jpg', gray)
-    
+        processed = to_gray(img_bgr)
+
     elif method == 'contrast':
-        # CONTRAST ENHANCEMENT using CLAHE
+        gray = to_gray(img_bgr)
+        processed = clahe(gray)
         if save_steps:
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            cv2.imwrite('step1_grayscale.jpg', gray)
-        
-        enhanced = enhance_contrast(img)
-        processed = enhanced
-        
+            cv2.imwrite('step_contrast_gray.jpg', gray)
+            cv2.imwrite('step_contrast_clahe.jpg', processed)
+
+    elif method == 'bilateral':
+        gray = to_gray(img_bgr)
+        blur = cv2.bilateralFilter(gray, d=9, sigmaColor=75, sigmaSpace=75)
+        processed = binarize_adaptive(blur)
+
+    elif method == 'advanced':
+        gray = to_gray(img_bgr)
+        scale_factor = 1.7  # Track the upscale factor
+        up = upscale(gray, scale_factor)
+        de = denoise(up)
+        cl = clahe(de)
+        th = binarize_otsu(cl)
+        processed = th
         if save_steps:
-            cv2.imwrite('step2_contrast_enhanced.jpg', enhanced)
-        
+            cv2.imwrite('step_adv_upscaled.jpg', up)
+            cv2.imwrite('step_adv_denoised.jpg', de)
+            cv2.imwrite('step_adv_clahe.jpg', cl)
+            cv2.imwrite('step_adv_otsu.jpg', th)
+
     elif method == 'otsu':
-        # Grayscale + Otsu thresholding
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        processed = thresh
-        if save_steps:
-            cv2.imwrite('step1_grayscale.jpg', gray)
-            cv2.imwrite('step2_otsu.jpg', thresh)
-        
+        gray = to_gray(img_bgr)
+        processed = binarize_otsu(gray)
+
     elif method == 'adaptive':
-        # Grayscale + Adaptive thresholding
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                       cv2.THRESH_BINARY, 11, 2)
-        processed = thresh
-        if save_steps:
-            cv2.imwrite('step1_grayscale.jpg', gray)
-            cv2.imwrite('step2_adaptive.jpg', thresh)
-    
+        gray = to_gray(img_bgr)
+        processed = binarize_adaptive(gray)
+
     else:
-        # Default: keep original
-        processed = img
-    
-    return img, processed
+        raise ValueError(f"Unknown preprocessing method: {method}")
 
-def upscale_image(image_path, scale_factor=2):
-    """
-    Upscale image for better OCR results
-    Scale factor of 2-3 usually works well
-    """
+    return img_bgr, processed, scale_factor
+
+
+# -------------------------------------------
+# Column detection (integrated)
+# -------------------------------------------
+
+def detect_vertical_lines(image_path='img.jpg', binarized=None, min_line_height_ratio=0.6):
+    output_path = "detected_lines.jpg"
+
     img = cv2.imread(image_path)
-    if img is None:
-        raise ValueError(f"Could not read image at {image_path}")
-    
-    height, width = img.shape[:2]
-    new_dimensions = (width * scale_factor, height * scale_factor)
-    
-    # Use INTER_CUBIC for upscaling (better quality)
-    upscaled = cv2.resize(img, new_dimensions, interpolation=cv2.INTER_CUBIC)
-    
-    # Save upscaled image
-    upscaled_path = image_path.rsplit('.', 1)[0] + '_upscaled.jpg'
-    cv2.imwrite(upscaled_path, upscaled)
-    
-    print(f"Upscaled image saved to: {upscaled_path}")
-    print(f"Original size: {width}x{height}, New size: {new_dimensions[0]}x{new_dimensions[1]}")
-    
-    return upscaled_path
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
-def extract_text_with_boxes(image_path, output_image_path='output_with_boxes.jpg', 
-                           config='--psm 6', min_conf=0, preprocessing='enhanced'):
-    """
-    Extract text using pytesseract and draw bounding boxes
-    
-    PSM modes:
-    0 = Orientation and script detection (OSD) only
-    1 = Automatic page segmentation with OSD
-    3 = Fully automatic page segmentation, but no OSD (Default)
-    4 = Assume a single column of text of variable sizes
-    5 = Assume a single uniform block of vertically aligned text
-    6 = Assume a single uniform block of text
-    7 = Treat the image as a single text line
-    8 = Treat the image as a single word
-    9 = Treat the image as a single word in a circle
-    10 = Treat the image as a single character
-    11 = Sparse text. Find as much text as possible in no particular order
-    12 = Sparse text with OSD
-    13 = Raw line. Treat the image as a single text line
-    """
-    # Use specified preprocessing method
-    original_img = cv2.imread(image_path)
-    _, processed_img = preprocess_image(image_path, method=preprocessing)
-    
-    # Get bounding boxes with custom config
-    data = pytesseract.image_to_data(processed_img, config=config, 
-                                     output_type=pytesseract.Output.DICT)
-    
-    # Draw bounding boxes on original image
-    img_with_boxes = original_img.copy()
-    n_boxes = len(data['text'])
-    
-    detected_words = []
-    
-    for i in range(n_boxes):
-        # Filter by confidence
-        if int(data['conf'][i]) > min_conf:
-            text = data['text'][i].strip()
-            if text:
-                (x, y, w, h) = (data['left'][i], data['top'][i], 
-                               data['width'][i], data['height'][i])
-                
-                detected_words.append({
-                    'text': text,
-                    'conf': data['conf'][i],
-                    'bbox': (x, y, w, h)
-                })
-                
-                # Draw rectangle
-                cv2.rectangle(img_with_boxes, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                
-                # Put text above the box (smaller font for dense documents)
-                cv2.putText(img_with_boxes, text, (x, y - 5),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 0, 0), 1)
-    
-    # Save the image with bounding boxes
-    cv2.imwrite(output_image_path, img_with_boxes)
-    print(f"Image with bounding boxes saved to: {output_image_path}")
-    print(f"Detected {len(detected_words)} words/tokens")
-    
-    return data, img_with_boxes, detected_words
+    lines = cv2.HoughLinesP(
+        edges,
+        rho=1,
+        theta=np.pi / 180,
+        threshold=100,
+        minLineLength=50,
+        maxLineGap=10
+    )
 
-def extract_text_line_boxes(image_path, output_image_path='output_with_line_boxes.jpg'):
-    """
-    Extract text using pytesseract and draw bounding boxes for lines
-    """
-    original_img, processed_img = preprocess_image(image_path)
-    
-    # Method 2: Get bounding boxes for each line
-    data = pytesseract.image_to_boxes(processed_img)
-    
-    img_with_boxes = original_img.copy()
-    h, w, _ = img_with_boxes.shape
-    
-    for box in data.splitlines():
-        box = box.split()
-        if len(box) == 6:
-            char, x, y, x2, y2, conf = box
-            x, y, x2, y2 = int(x), int(y), int(x2), int(y2)
+    vertical_lines = []
+    min_length = 100
+    x_merge_tolerance = 15
+
+    if lines is not None:
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
+            length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+            if abs(angle) > 85 and length >= min_length:
+                vertical_lines.append((x1, y1, x2, y2, length))
+
+    vertical_lines.sort(key=lambda l: (l[0] + l[2]) / 2)
+
+    merged_lines = []
+    if vertical_lines:
+        current_group = [vertical_lines[0]]
+
+        for line in vertical_lines[1:]:
+            prev_x = np.mean([current_group[-1][0], current_group[-1][2]])
+            curr_x = np.mean([line[0], line[2]])
+
+            if abs(curr_x - prev_x) < x_merge_tolerance:
+                current_group.append(line)
+            else:
+                merged_lines.append(max(current_group, key=lambda l: l[4]))
+                current_group = [line]
+
+        merged_lines.append(max(current_group, key=lambda l: l[4]))
+
+    display_lines = [line for line in merged_lines if line[4] > 500]
+
+    for x1, y1, x2, y2, length in display_lines:
+        cv2.line(img, (x1, y1), (x2, y2), (255, 0, 0), 4)
+        cv2.putText(img, f"{int(length)}px", (x1 + 5, min(y1, y2) + 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+
+    cv2.imwrite(output_path, img)
+    print(f"✅ Output saved to: {output_path}")
+ 
+    x_coords = sorted([int((x1 + x2) / 2) for x1, y1, x2, y2, _ in display_lines])
+    print("\nFiltered vertical line x-coordinates:", x_coords)
+
+    return x_coords 
+
+
+# -------------------------------------------
+# OCR Extraction (Enhanced with row-wise extraction)
+# -------------------------------------------
+
+class OCRExtraction:
+    EXCLUDED_COLUMNS = [175, 395, 434]  # Exclude unnecessary vertical lines
+
+    def __init__(self, processed_img, original_img, column_boundaries=None, scale_factor=1.0):
+        self.gray = processed_img
+        self.img = original_img
+        self.column_boundaries = column_boundaries or []
+        self.scale_factor = scale_factor  # Scale factor for coordinate conversion
+        self.line_groups = {}
+        self.final_text = ""
+        self.data_by_rows = []
+        self.raw_rows = []  # Store raw row data before table structuring
+        self.column_names = ['No', 'Name of children', 'Age', 'Address', 'Name of guardian or parent']
+        
+        # Scale column boundaries to match the processed image coordinates
+        self.scaled_boundaries = [int(x * scale_factor) for x in self.column_boundaries]
+        print(f"[INFO] Scale factor: {scale_factor}")
+        print(f"[INFO] Original boundaries: {self.column_boundaries}")
+        print(f"[INFO] Scaled boundaries: {self.scaled_boundaries}")
+
+    def extract_text(self, line_mid_variance=10, config='--psm 6 --oem 1', min_conf=0):
+        """Extract text and group by rows based on vertical position"""
+        data = pytesseract.image_to_data(self.gray, output_type=pytesseract.Output.DICT, config=config)
+        
+        for i in range(len(data['text'])):
+            word = (data['text'][i] or "").strip()
+            if not word:
+                continue
+            try:
+                conf = int(float(data['conf'][i]))
+            except:
+                conf = -1
+            if conf < min_conf:
+                continue
+
+            x = data['left'][i]
+            y = data['top'][i]
+            w = data['width'][i]
+            h = data['height'][i]
+
+            cv2.rectangle(self.img, (x, y), (x + w, y + h), (0, 255, 0), 1)
+            y_mid = y + h // 2
+
+            # Group by line midpoint
+            matched_line = None
+            for line_y in list(self.line_groups.keys()):
+                if abs(line_y - y_mid) <= line_mid_variance:
+                    matched_line = line_y
+                    break
+
+            if matched_line is not None:
+                self.line_groups[matched_line].append((x, word, conf))
+            else:
+                self.line_groups[y_mid] = [(x, word, conf)]
+
+    def extract_rows(self):
+        """Extract text row by row, sorted by vertical position"""
+        sorted_lines = sorted(self.line_groups.items(), key=lambda kv: kv[0])
+        
+        self.raw_rows = []
+        for y_pos, words in sorted_lines:
+            # Sort words in each row by x position (left to right)
+            words_sorted = sorted(words, key=lambda w: w[0])
             
-            # Convert coordinates (tesseract uses bottom-left origin)
-            y = h - y
-            y2 = h - y2
+            row_data = {
+                'y_position': y_pos,
+                'words': [(x, word, conf) for x, word, conf in words_sorted],
+                'full_text': ' '.join([word for _, word, _ in words_sorted]),
+                'avg_confidence': np.mean([conf for _, _, conf in words_sorted]) if words_sorted else 0
+            }
+            self.raw_rows.append(row_data)
+        
+        print(f"\n{'='*80}")
+        print(f"ROW-WISE TEXT EXTRACTION")
+        print(f"{'='*80}")
+        print(f"Total rows detected: {len(self.raw_rows)}\n")
+        
+        for idx, row in enumerate(self.raw_rows):
+            print(f"Row {idx+1:3d} (y={row['y_position']:4d}, conf={row['avg_confidence']:.1f}%): {row['full_text']}")
+        
+        return self.raw_rows
+
+    def create_table_structure(self, start_row=17, header_keywords=None):
+        """
+        Create a structured table by organizing rows into columns starting from a specific row
+        start_row: Row number to start table extraction (1-indexed, default=17)
+        header_keywords: List of keywords to identify header row (e.g., ['NAMES', 'ADDRESS', 'DATE'])
+        """
+        if header_keywords is None:
+            header_keywords = ['NAME', 'NAMES', 'ADDRESS', 'DATE', 'AMOUNT', 'CHILDREN', 'GUARDIAN']
+        
+        # Use scaled boundaries for word coordinate comparison
+        filtered_boundaries = [x * self.scale_factor for x in self.column_boundaries if x not in self.EXCLUDED_COLUMNS]
+        filtered_boundaries = [int(x) for x in filtered_boundaries]  # Convert to int
+        
+        if not filtered_boundaries:
+            print("[WARN] No column boundaries detected — creating single column table")
+            # If no columns detected, create simple table with full text
+            table_data = []
+            for idx, row in enumerate(self.raw_rows):
+                if idx >= start_row - 1:  # Convert to 0-indexed
+                    table_data.append([row['full_text']])
+            return pd.DataFrame(table_data, columns=['Text'])
+        
+        print(f"\n[INFO] Original column boundaries (filtered): {[x for x in self.column_boundaries if x not in self.EXCLUDED_COLUMNS]}")
+        print(f"[INFO] Scaled column boundaries (for word matching): {filtered_boundaries}")
+        print(f"[INFO] Excluded boundaries: {self.EXCLUDED_COLUMNS}")
+        print(f"[INFO] Starting table extraction from row {start_row}")
+        
+        # Use predefined column names
+        num_expected_columns = len(filtered_boundaries) + 1
+        
+        # If we have predefined column names and they match the expected number of columns
+        if len(self.column_names) == num_expected_columns:
+            headers = self.column_names
+            print(f"[INFO] Using predefined column names: {headers}")
+        else:
+            # Try to find header row
+            header_row_idx = max(0, start_row - 4)
+            search_start = max(0, start_row - 4)
+            search_end = min(len(self.raw_rows), start_row + 2)
             
-            cv2.rectangle(img_with_boxes, (x, y2), (x2, y), (0, 0, 255), 1)
-            cv2.putText(img_with_boxes, char, (x, y2 - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
-    
-    cv2.imwrite(output_image_path, img_with_boxes)
-    print(f"Image with character boxes saved to: {output_image_path}")
-    
-    return data, img_with_boxes
-
-def extract_text_by_lines(image_path, config='--psm 6', min_conf=0, preprocessing='enhanced'):
-    """
-    Extract text organized by lines, preserving the original layout
-    """
-    _, processed_img = preprocess_image(image_path, method=preprocessing)
-    
-    # Get detailed data
-    data = pytesseract.image_to_data(processed_img, config=config,
-                                     output_type=pytesseract.Output.DICT)
-    
-    # Group words by line
-    lines = {}
-    n_boxes = len(data['text'])
-    
-    for i in range(n_boxes):
-        if int(data['conf'][i]) > min_conf:
-            text = data['text'][i].strip()
-            if text:
-                # Use block_num and line_num to group words on same line
-                block_num = data['block_num'][i]
-                line_num = data['line_num'][i]
-                key = (block_num, line_num)
-                
-                if key not in lines:
-                    lines[key] = []
-                
-                lines[key].append({
-                    'text': text,
-                    'left': data['left'][i],
-                    'top': data['top'][i],
-                    'conf': data['conf'][i]
-                })
-    
-    # Sort lines by vertical position (top coordinate)
-    sorted_lines = []
-    for key in sorted(lines.keys()):
-        # Sort words in each line by horizontal position (left coordinate)
-        line_words = sorted(lines[key], key=lambda x: x['left'])
-        line_text = ' '.join([word['text'] for word in line_words])
-        avg_top = sum([word['top'] for word in line_words]) / len(line_words)
-        sorted_lines.append((avg_top, line_text))
-    
-    # Sort by vertical position
-    sorted_lines.sort(key=lambda x: x[0])
-    
-    # Return text with each line on a new line
-    return '\n'.join([line[1] for line in sorted_lines])
-
-def extract_text_by_lines_detailed(image_path, config='--psm 6', min_conf=0, preprocessing='enhanced'):
-    """
-    Extract text organized by lines with detailed information
-    Returns list of lines with their positions and words
-    """
-    _, processed_img = preprocess_image(image_path, method=preprocessing)
-    
-    # Get detailed data
-    data = pytesseract.image_to_data(processed_img, config=config,
-                                     output_type=pytesseract.Output.DICT)
-    
-    # Group words by line
-    lines = {}
-    n_boxes = len(data['text'])
-    
-    for i in range(n_boxes):
-        if int(data['conf'][i]) > min_conf:
-            text = data['text'][i].strip()
-            if text:
-                block_num = data['block_num'][i]
-                line_num = data['line_num'][i]
-                key = (block_num, line_num)
-                
-                if key not in lines:
-                    lines[key] = {
-                        'words': [],
-                        'block': block_num,
-                        'line': line_num
-                    }
-                
-                lines[key]['words'].append({
-                    'text': text,
-                    'left': data['left'][i],
-                    'top': data['top'][i],
-                    'width': data['width'][i],
-                    'height': data['height'][i],
-                    'conf': data['conf'][i]
-                })
-    
-    # Sort and format lines
-    result_lines = []
-    for key in sorted(lines.keys()):
-        line_data = lines[key]
-        # Sort words in each line by horizontal position
-        line_data['words'].sort(key=lambda x: x['left'])
+            for idx in range(search_start, search_end):
+                if idx < len(self.raw_rows):
+                    row_text = self.raw_rows[idx]['full_text'].upper()
+                    if any(keyword in row_text for keyword in header_keywords):
+                        header_row_idx = idx
+                        print(f"[INFO] Header row detected at row {idx + 1}: {self.raw_rows[idx]['full_text']}")
+                        break
+            
+            # Create column headers from header row
+            if header_row_idx < len(self.raw_rows):
+                header_row = self.raw_rows[header_row_idx]
+                headers = self._distribute_words_to_columns(header_row['words'], filtered_boundaries)
+                headers = [h.strip() or f"Column_{i+1}" for i, h in enumerate(headers)]
+            else:
+                # Use default column names
+                headers = [f"Column_{i+1}" for i in range(num_expected_columns)]
+            
+            print(f"[INFO] Detected column names: {headers}")
         
-        # Calculate line position (average top of all words)
-        avg_top = sum([word['top'] for word in line_data['words']]) / len(line_data['words'])
-        avg_left = min([word['left'] for word in line_data['words']])
+        print(f"[INFO] Number of columns: {len(headers)}")
         
-        line_text = ' '.join([word['text'] for word in line_data['words']])
+        # Process data rows starting from specified row
+        table_data = []
+        data_start_row = start_row - 1  # Convert to 0-indexed
         
-        result_lines.append({
-            'text': line_text,
-            'top': avg_top,
-            'left': avg_left,
-            'block': line_data['block'],
-            'line': line_data['line'],
-            'words': line_data['words']
-        })
-    
-    # Sort by vertical position
-    result_lines.sort(key=lambda x: x['top'])
-    
-    return result_lines
+        print(f"[INFO] Extracting data from row {data_start_row + 1} to row {len(self.raw_rows)}")
+        
+        for idx in range(data_start_row, len(self.raw_rows)):
+            row = self.raw_rows[idx]
+            row_cells = self._distribute_words_to_columns(row['words'], filtered_boundaries)
+            table_data.append(row_cells)
+            
+            # Debug: Show first few rows assignment
+            if idx - data_start_row < 5:
+                print(f"  Row {idx + 1}: {row_cells}")
+        
+        # Create DataFrame
+        df = pd.DataFrame(table_data, columns=headers)
+        
+        print(f"\n{'='*80}")
+        print(f"TABLE STRUCTURE")
+        print(f"{'='*80}")
+        print(f"Start row: {start_row}")
+        print(f"Columns: {headers}")
+        print(f"Data rows: {len(table_data)}")
+        print(f"\nColumn boundaries used for alignment (scaled coordinates):")
+        for i, boundary in enumerate(filtered_boundaries):
+            col_range_start = 0 if i == 0 else filtered_boundaries[i-1]
+            original_boundary = int(boundary / self.scale_factor)
+            print(f"  Column '{headers[i]}': x < {boundary} (original: x < {original_boundary})")
+        original_last = int(filtered_boundaries[-1] / self.scale_factor)
+        print(f"  Column '{headers[-1]}': x >= {filtered_boundaries[-1]} (original: x >= {original_last})")
+        print(f"\nPreview (first 10 rows):")
+        print(df.head(10).to_string(index=False))
+        print(f"{'='*80}\n")
+        
+        return df
 
-def get_detailed_data(image_path, config='--psm 6', min_conf=0, preprocessing='enhanced'):
-    """
-    Get detailed OCR data including confidence scores
-    """
-    _, processed_img = preprocess_image(image_path, method=preprocessing)
-    
-    # Get detailed data
-    data = pytesseract.image_to_data(processed_img, config=config,
-                                     output_type=pytesseract.Output.DICT)
-    
-    # Create a structured output
-    results = []
-    n_boxes = len(data['text'])
-    
-    for i in range(n_boxes):
-        if int(data['conf'][i]) > min_conf:
-            text = data['text'][i].strip()
-            if text:
-                results.append({
-                    'text': text,
-                    'confidence': data['conf'][i],
-                    'left': data['left'][i],
-                    'top': data['top'][i],
-                    'width': data['width'][i],
-                    'height': data['height'][i],
-                    'block_num': data['block_num'][i],
-                    'line_num': data['line_num'][i],
-                    'word_num': data['word_num'][i]
-                })
-    
-    return results
+    def _distribute_words_to_columns(self, words, boundaries):
+        """
+        Distribute words into columns based on their x-position relative to vertical boundaries.
+        Words with x < boundary go to the left column, words with x >= boundary go to the right.
+        """
+        num_columns = len(boundaries) + 1
+        columns = [""] * num_columns
+        
+        # Sort words by x position for consistent ordering within each column
+        sorted_words = sorted(words, key=lambda w: w[0])
+        
+        for x, word, conf in sorted_words:
+            col_idx = self._get_column_index(x, boundaries)
+            if col_idx < num_columns:
+                # Add space between words in the same column
+                if columns[col_idx]:
+                    columns[col_idx] += " "
+                columns[col_idx] += word
+        
+        return [col.strip() for col in columns]
 
-# Example usage
-if __name__ == "__main__":
-    image_path = "img.jpg"  # Replace with your image path
-    
+    def _get_column_index(self, x, boundaries):
+        """
+        Determine which column an x-coordinate belongs to based on vertical boundaries.
+        Text with x < boundary[i] belongs to column i.
+        Text with x >= boundary[-1] belongs to the last column.
+        """
+        for i, boundary in enumerate(boundaries):
+            if x < boundary:
+                return i
+        # If x is greater than all boundaries, it belongs to the rightmost column
+        return len(boundaries)
+
+    def isolate_vertical_lines(self, binarized=None):
+        if binarized is None:
+            binarized = self.gray
+        vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(20, binarized.shape[0] // 20)))
+        temp_img = cv2.erode(binarized, vertical_kernel, iterations=1)
+        vertical_lines_img = cv2.dilate(temp_img, vertical_kernel, iterations=2)
+        return vertical_lines_img
+
+    def draw_vertical_lines(self, color=(255, 0, 0), thickness=2, draw_isolated=True, min_line_height=1000):
+        """Draw vertical lines on the original image (not scaled)"""
+        filtered_boundaries = [x for x in self.column_boundaries if x not in self.EXCLUDED_COLUMNS]
+        if filtered_boundaries:
+            h = self.img.shape[0]
+            for x in filtered_boundaries:
+                cv2.line(self.img, (x, 0), (x, h), color, thickness)
+
+        if draw_isolated:
+            # Create a temporary grayscale version of original image for line detection
+            gray_original = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)
+            isolated_lines_img = self.isolate_vertical_lines(gray_original)
+            contours, _ = cv2.findContours(isolated_lines_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours:
+                x, y, w, h = cv2.boundingRect(cnt)
+                if h >= min_line_height and w < 8:
+                    cv2.line(self.img, (x + w // 2, y), (x + w // 2, y + h), (0, 0, 255), 1)
+
+    def reconstruct_text(self):
+        """Reconstruct text from line groups"""
+        sorted_lines = sorted(self.line_groups.items(), key=lambda kv: kv[0])
+        final_text_lines = []
+        
+        for _, words in sorted_lines:
+            words = sorted(words, key=lambda w: w[0])
+            line_text = " ".join([w[1] for w in words])
+            final_text_lines.append(line_text)
+        
+        self.final_text = "\n".join(final_text_lines)
+        return self.final_text
+
+    def save_results(self, output_dir="outputs"):
+        """Save text and image results"""
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Save raw text
+        text_path = os.path.join(output_dir, "output_text.txt")
+        with open(text_path, "w", encoding="utf-8") as f:
+            f.write(self.final_text)
+        print(f"[INFO] Text saved at: {text_path}")
+        
+        # Save row-wise text
+        rows_path = os.path.join(output_dir, "output_rows.txt")
+        with open(rows_path, "w", encoding="utf-8") as f:
+            f.write(f"{'='*80}\n")
+            f.write(f"ROW-WISE TEXT EXTRACTION\n")
+            f.write(f"{'='*80}\n\n")
+            for idx, row in enumerate(self.raw_rows):
+                f.write(f"Row {idx+1:3d} (y={row['y_position']:4d}, conf={row['avg_confidence']:.1f}%): {row['full_text']}\n")
+        print(f"[INFO] Row-wise text saved at: {rows_path}")
+        
+        # Save image with bounding boxes
+        bbox_image_path = os.path.join(output_dir, "output_boxes.jpg")
+        cv2.imwrite(bbox_image_path, self.img)
+        print(f"[INFO] Image with bounding boxes saved at: {bbox_image_path}")
+
+    def save_table_to_excel(self, df, output_path="outputs/table_extracted.xlsx"):
+        """Save structured table to Excel"""
+        if df is None or df.empty:
+            print("[WARN] No table data available to save.")
+            return
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Save with formatting
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Extracted Table', index=False)
+        
+        print(f"[INFO] Table data saved to: {output_path}")
+
+    def save_table_to_csv(self, df, output_path="outputs/table_extracted.csv"):
+        """Save structured table to CSV"""
+        if df is None or df.empty:
+            print("[WARN] No table data available to save.")
+            return
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        df.to_csv(output_path, index=False, encoding='utf-8')
+        print(f"[INFO] Table data saved to: {output_path}")
+
+    def save_table_to_text(self, df, output_path="outputs/table_structure.txt"):
+        """Save structured table to a formatted text file"""
+        if df is None or df.empty:
+            print("[WARN] No table data available to save.")
+            return
+        
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            # Write header
+            f.write("="*100 + "\n")
+            f.write("TABLE STRUCTURE - EXTRACTED DATA\n")
+            f.write("="*100 + "\n\n")
+            
+            # Write column information
+            f.write(f"Number of columns: {len(df.columns)}\n")
+            f.write(f"Number of rows: {len(df)}\n")
+            f.write(f"Columns: {', '.join(df.columns)}\n")
+            f.write("\n" + "="*100 + "\n\n")
+            
+            # Calculate column widths for formatting
+            col_widths = {}
+            for col in df.columns:
+                max_width = max(
+                    len(str(col)),
+                    df[col].astype(str).str.len().max() if not df[col].empty else 0
+                )
+                col_widths[col] = min(max_width + 2, 30)  # Max width 30 chars
+            
+            # Write header row
+            header_line = " | ".join([str(col).ljust(col_widths[col]) for col in df.columns])
+            f.write(header_line + "\n")
+            f.write("-"*len(header_line) + "\n")
+            
+            # Write data rows
+            for idx, row in df.iterrows():
+                row_line = " | ".join([
+                    str(row[col])[:col_widths[col]].ljust(col_widths[col]) 
+                    for col in df.columns
+                ])
+                f.write(row_line + "\n")
+            
+            f.write("\n" + "="*100 + "\n")
+            f.write(f"Total rows: {len(df)}\n")
+            f.write("="*100 + "\n")
+        
+        print(f"[INFO] Table structure saved to: {output_path}")
+
+
+# -------------------------------------------
+# Orchestrator
+# -------------------------------------------
+
+class OCR:
+    def __init__(self, image_path, output_dir="outputs", preprocessing='advanced', 
+                 tesseract_config='--psm 6 --oem 1', min_conf=0, show=False,
+                 header_keywords=None, table_start_row=17):
+        self.image_path = image_path
+        self.output_dir = output_dir
+        self.preprocessing = preprocessing
+        self.tesseract_config = tesseract_config
+        self.min_conf = min_conf
+        self.show = show
+        self.header_keywords = header_keywords or ['NAME', 'NAMES', 'ADDRESS', 'DATE', 'AMOUNT']
+        self.table_start_row = table_start_row
+
+    def run(self):
+        print(f"\n{'='*80}")
+        print(f"OCR PIPELINE STARTED")
+        print(f"{'='*80}\n")
+        
+        # Step 1: Preprocess image
+        print("[STEP 1] Preprocessing image...")
+        orig_bgr, processed, scale_factor = preprocess_image(
+            self.image_path, 
+            method=self.preprocessing, 
+            save_steps=(self.preprocessing in ['contrast', 'advanced'])
+        )
+        print(f"✓ Preprocessing complete using method: {self.preprocessing}")
+        print(f"✓ Scale factor: {scale_factor}x")
+        print(f"✓ Original image size: {orig_bgr.shape[:2]}")
+        print(f"✓ Processed image size: {processed.shape[:2]}\n")
+        
+        # Step 2: Detect vertical lines (column boundaries) on ORIGINAL image
+        print("[STEP 2] Detecting column boundaries on original image...")
+        column_boundaries = detect_vertical_lines(image_path=self.image_path, binarized=None)
+        print(f"✓ Detected {len(column_boundaries)} column boundaries (original coordinates)\n")
+
+        # Step 3: OCR text extraction on PROCESSED image
+        print("[STEP 3] Extracting text with OCR from processed image...")
+        extractor = OCRExtraction(processed, orig_bgr.copy(), column_boundaries, scale_factor)
+        extractor.extract_text(config=self.tesseract_config, min_conf=self.min_conf)
+        extractor.draw_vertical_lines()
+        print(f"✓ Text extraction complete (coordinates in scaled space)\n")
+
+        # Step 4: Extract rows
+        print("[STEP 4] Extracting text row-wise...")
+        extractor.extract_rows()
+        print(f"✓ Row extraction complete\n")
+        
+        # Step 5: Reconstruct plain text
+        print("[STEP 5] Reconstructing plain text...")
+        extractor.reconstruct_text()
+        print(f"✓ Text reconstruction complete\n")
+        
+        # Step 6: Create table structure with coordinate alignment
+        print("[STEP 6] Creating table structure with coordinate alignment...")
+        df = extractor.create_table_structure(
+            start_row=self.table_start_row,
+            header_keywords=self.header_keywords
+        )
+        print(f"✓ Table structure created with proper coordinate mapping\n")
+        
+        # Step 7: Save all results
+        print("[STEP 7] Saving results...")
+        extractor.save_results(self.output_dir)
+        extractor.save_table_to_excel(df, f"{self.output_dir}/table_extracted.xlsx")
+        extractor.save_table_to_csv(df, f"{self.output_dir}/table_extracted.csv")
+        extractor.save_table_to_text(df, f"{self.output_dir}/table_structure.txt")
+        print(f"✓ All results saved to {self.output_dir}\n")
+
+        # Step 8: Optional display
+        if self.show:
+            cv2.imshow("Processed Image", processed)
+            cv2.imshow("Detected Text Boxes", extractor.img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        
+        print(f"{'='*80}")
+        print(f"OCR PIPELINE COMPLETED SUCCESSFULLY")
+        print(f"{'='*80}\n")
+        
+        return df, extractor
+
+
+# -------------------------------------------
+# Quick benchmark
+# -------------------------------------------
+
+def quick_benchmark(image_path):
     print("=" * 80)
-    print("OCR EXTRACTION WITH CONTRAST ENHANCEMENT & LINE REMOVAL")
+    print("OCR EXTRACTION WITH MULTIPLE PREPROCESSING OPTIONS")
     print("=" * 80)
-    
+
     print("\nSTEP 1: Testing preprocessing methods...")
     print("-" * 80)
-    
-    # Test different preprocessing methods
+
     preprocessing_methods = [
         ('original', 'No processing'),
-        ('contrast', 'Contrast enhancement only'),
-        ('remove_lines', 'Border/line removal only'),
-        ('contrast_and_remove_lines', 'Contrast + Line removal (RECOMMENDED)'),
-        ('grayscale', 'Just grayscale'),
+        ('grayscale', 'Grayscale conversion'),
+        ('contrast', 'Contrast enhancement (CLAHE)'),
+        ('bilateral', 'ImagePreprocessor class (bilateral + adaptive)'),
+        ('advanced', 'Advanced (upscale + denoise + CLAHE + Otsu)'),
+        ('otsu', 'Otsu thresholding'),
+        ('adaptive', 'Adaptive thresholding'),
     ]
-    
+
     print("\nGenerating preprocessed images for comparison...")
     for method, description in preprocessing_methods:
         print(f"  Processing: {description}...")
-        _, processed = preprocess_image(image_path, method=method, 
-                                       save_steps=(method=='contrast_and_remove_lines'))
-        cv2.imwrite(f'preprocessed_{method}.jpg', processed)
-        print(f"    ✓ Saved: preprocessed_{method}.jpg")
-    
-    print("\n✓ Review these images to see the preprocessing effects:")
-    print("  - preprocessed_original.jpg (unchanged)")
-    print("  - preprocessed_contrast.jpg (enhanced contrast)")
-    print("  - preprocessed_remove_lines.jpg (table lines removed)")
-    print("  - preprocessed_contrast_and_remove_lines.jpg (BOTH - best for tables)")
-    
-    if True:  # Check if detailed steps were saved
-        print("\n✓ Detailed line removal steps saved:")
-        print("  - border_step3_horizontal_lines.jpg (detected horizontal lines)")
-        print("  - border_step4_vertical_lines.jpg (detected vertical lines)")
-        print("  - border_step5_combined_lines.jpg (all lines detected)")
-        print("  - border_step7_final_no_lines.jpg (final result)")
-    
+        try:
+            _, processed, scale = preprocess_image(image_path, method=method, save_steps=(method in ['contrast', 'advanced']))
+            cv2.imwrite(f'preprocessed_{method}.jpg', processed)
+            print(f"    ✓ Saved: preprocessed_{method}.jpg (scale: {scale}x)")
+        except Exception as e:
+            print(f"    ✗ Error: {str(e)[:50]}")
+
     print("\n" + "=" * 80)
     print("STEP 2: Testing OCR with different preprocessing methods...")
     print("=" * 80)
-    
-    # Test PSM modes with different preprocessing
+
     psm_configs = [
         ('--psm 4 --oem 1', 'PSM 4: Single column + LSTM'),
         ('--psm 6 --oem 1', 'PSM 6: Uniform block + LSTM'),
         ('--psm 3 --oem 1', 'PSM 3: Fully automatic + LSTM'),
     ]
-    
-    # Test preprocessing methods that make sense for OCR
-    test_preprocessing = [
-        'original',
-        'contrast',
-        'remove_lines',
-        'contrast_and_remove_lines'
-    ]
-    
+
+    test_preprocessing = ['original', 'grayscale', 'contrast', 'bilateral', 'advanced']
+
     print("\nTesting combinations of PSM modes and preprocessing...")
     print("-" * 80)
-    
+
     results = []
-    
     for config, config_desc in psm_configs:
         print(f"\n{config_desc}:")
         for preproc in test_preprocessing:
             try:
-                data, img_boxes, words = extract_text_with_boxes(
-                    image_path, 
-                    f'output_{config.replace(" ", "_").replace("--", "")}_{preproc}.jpg',
-                    config=config,
-                    min_conf=0,
-                    preprocessing=preproc
-                )
-                print(f"  {preproc:30s}: {len(words):4d} words detected")
-                results.append({
-                    'config': config,
-                    'preproc': preproc,
-                    'count': len(words),
-                    'description': config_desc
-                })
+                _, processed, scale = preprocess_image(image_path, method=preproc)
+                data = pytesseract.image_to_data(processed, output_type=pytesseract.Output.DICT, config=config)
+                words = [t for t in data['text'] if (t or '').strip()]
+                print(f"  {preproc:20s}: {len(words):4d} words detected (scale: {scale}x)")
+                results.append({'config': config, 'preproc': preproc, 'count': len(words), 'description': config_desc})
             except Exception as e:
-                print(f"  {preproc:30s}: Error - {str(e)[:50]}")
-    
-    # Find best configuration
+                print(f"  {preproc:20s}: Error - {str(e)[:50]}")
+
     if results:
         best = max(results, key=lambda x: x['count'])
-        
         print("\n" + "=" * 80)
         print("BEST CONFIGURATION FOUND:")
         print("=" * 80)
@@ -453,109 +669,34 @@ if __name__ == "__main__":
         print(f"  Preprocessing: {best['preproc']}")
         print(f"  Words detected: {best['count']}")
         print("=" * 80)
-        
-        # Extract text with best configuration
-        print("\nSTEP 3: Extracting text with best configuration...")
-        print("-" * 80)
-        
-        print("\nExtracting line-by-line text...")
-        line_text = extract_text_by_lines(
-            image_path, 
-            config=best['config'], 
-            min_conf=0,
-            preprocessing=best['preproc']
-        )
-        
-        # Show preview
-        print("\nFirst 40 lines of extracted text:")
-        print("-" * 80)
-        lines_preview = line_text.split('\n')[:40]
-        for i, line in enumerate(lines_preview, 1):
-            if line.strip():
-                print(f"{i:3d}: {line}")
-        print("-" * 80)
-        
-        # Save results
-        with open('ocr_text_lines.txt', 'w', encoding='utf-8') as f:
-            f.write(line_text)
-        print("\n✓ Full text saved to 'ocr_text_lines.txt'")
-        
-        # Extract with confidence filtering
-        print("\nExtracting with confidence threshold (min_conf=30)...")
-        line_text_filtered = extract_text_by_lines(
-            image_path, 
-            config=best['config'], 
-            min_conf=30,
-            preprocessing=best['preproc']
-        )
-        
-        with open('ocr_text_lines_filtered.txt', 'w', encoding='utf-8') as f:
-            f.write(line_text_filtered)
-        print("✓ Filtered text saved to 'ocr_text_lines_filtered.txt'")
-        
-        # Get detailed line information
-        print("\nExtracting detailed line information...")
-        detailed_lines = extract_text_by_lines_detailed(
-            image_path, 
-            config=best['config'], 
-            min_conf=0,
-            preprocessing=best['preproc']
-        )
-        
-        print(f"✓ Found {len(detailed_lines)} lines")
-        
-        # Save detailed information
-        with open('ocr_lines_detailed.txt', 'w', encoding='utf-8') as f:
-            f.write("Detailed Line Information:\n")
-            f.write(f"Best Config: {best['config']} with {best['preproc']} preprocessing\n")
-            f.write("=" * 80 + "\n\n")
-            for i, line in enumerate(detailed_lines, 1):
-                f.write(f"Line {i} (Block {line['block']}, Line {line['line']}):\n")
-                f.write(f"Position: ({line['left']:.1f}, {line['top']:.1f})\n")
-                f.write(f"Text: {line['text']}\n")
-                f.write(f"Words: {len(line['words'])}\n")
-                for word in line['words']:
-                    f.write(f"  '{word['text']}' | pos:({word['left']},{word['top']}) | conf:{word['conf']:.1f}\n")
-                f.write("\n")
-        
-        print("✓ Detailed info saved to 'ocr_lines_detailed.txt'")
-        
-        print("\n" + "=" * 80)
-        print("SUMMARY OF OUTPUT FILES:")
-        print("=" * 80)
-        
-        print("\n1. PREPROCESSING COMPARISON:")
-        print("   View these to understand each preprocessing step:")
-        for method, desc in preprocessing_methods:
-            print(f"   • preprocessed_{method}.jpg - {desc}")
-        
-        print("\n2. LINE REMOVAL STEPS (if using contrast_and_remove_lines):")
-        print("   • border_step3_horizontal_lines.jpg - Horizontal lines detected")
-        print("   • border_step4_vertical_lines.jpg - Vertical lines detected")
-        print("   • border_step5_combined_lines.jpg - All lines combined")
-        print("   • border_step7_final_no_lines.jpg - Final result")
-        
-        print("\n3. OCR OUTPUT WITH BOUNDING BOXES:")
-        print("   • output_psm*_*.jpg - Visual verification of text detection")
-        
-        print("\n4. EXTRACTED TEXT:")
-        print("   • ocr_text_lines.txt - All extracted text (line by line)")
-        print("   • ocr_text_lines_filtered.txt - High confidence text only")
-        print("   • ocr_lines_detailed.txt - Detailed metadata and positions")
-        
-        print("\n" + "=" * 80)
-        print("RECOMMENDATIONS:")
-        print("=" * 80)
-        print("✓ Compare preprocessed images to see which looks clearest")
-        print("✓ Check output images to verify text detection accuracy")
-        print("✓ Review ocr_text_lines.txt for the extracted content")
-        print("✓ For table documents, 'contrast_and_remove_lines' usually works best")
-        print("✓ If lines are being detected as text, use 'remove_lines' preprocessing")
-        print("=" * 80)
-        
-    else:
-        print("\n✗ No successful OCR extractions.")
-        print("  Please check:")
-        print("  1. Tesseract is installed: 'tesseract --version'")
-        print("  2. Image path is correct")
-        print("  3. Image is readable by OpenCV")
+
+
+if __name__ == "__main__":
+    # Example usage
+    img_path = "img.jpg"
+
+    # Option 1: Run full pipeline
+    pipeline = OCR(
+        image_path=img_path,
+        output_dir="outputs",
+        preprocessing='advanced',
+        tesseract_config='--psm 6 --oem 1',
+        min_conf=0,
+        show=False,
+        header_keywords=['NAME', 'CHILDREN', 'AGE', 'ADDRESS', 'GUARDIAN', 'PARENT'],  # Keywords for your 5 columns
+        table_start_row=17  # Start extracting table data from row 17
+    )
+    df, extractor = pipeline.run()
+    
+    # Access the results
+    print("\n" + "="*80)
+    print("FINAL RESULTS")
+    print("="*80)
+    print(f"DataFrame shape: {df.shape}")
+    print(f"Columns: {list(df.columns)}")
+    print(f"\nFirst 5 rows:")
+    print(df.head())
+    print("="*80)
+    
+    # Option 2: Run benchmark (uncomment to use)
+    # quick_benchmark(img_path)
