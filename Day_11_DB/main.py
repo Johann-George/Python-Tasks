@@ -12,9 +12,6 @@ def add_customer_with_orders():
         name = input("Enter your name:")
         email = input("Enter your email:")
         phone = input("Enter your phone no:")
-        # if not all([name,email,phone]):
-        #     print("Error in getting data")
-        #     return False
         customer_data = CustomerInput(name, email, phone)
         new_customer = create_customer(customer_data.name, customer_data.email, customer_data.phone)
 
