@@ -513,6 +513,101 @@ class OCRExtraction:
         
         print(f"[INFO] Table structure saved to: {output_path}")
 
+    def refine_table_data(self, df):
+        """
+        Refine and clean the extracted table data based on column types
+        - Name columns: Only letters and spaces
+        - Age column: Only numbers
+        - Address column: Remove special characters like *, |, ", :
+        - Guardian column: Only letters and spaces
+        """
+        if df is None or df.empty:
+            print("[WARN] No table data to refine.")
+            return df
+        
+        print(f"\n{'='*80}")
+        print(f"REFINING TABLE DATA")
+        print(f"{'='*80}\n")
+        
+        refined_df = df.copy()
+        
+        # Define column type mappings
+        column_rules = {
+            'No': 'number',
+            'Name of children': 'letters_only',
+            'Age': 'number',
+            'Address': 'address',
+            'Name of guardian or parent': 'letters_only'
+        }
+        
+        for col in refined_df.columns:
+            if col in column_rules:
+                rule_type = column_rules[col]
+                print(f"[INFO] Cleaning column '{col}' using rule: {rule_type}")
+                
+                if rule_type == 'number':
+                    refined_df[col] = refined_df[col].apply(self._extract_numbers)
+                elif rule_type == 'letters_only':
+                    refined_df[col] = refined_df[col].apply(self._extract_letters_only)
+                elif rule_type == 'address':
+                    refined_df[col] = refined_df[col].apply(self._clean_address)
+                
+                # Show sample of changes
+                sample_idx = min(3, len(refined_df))
+                if sample_idx > 0:
+                    print(f"  Sample transformations for '{col}':")
+                    for i in range(sample_idx):
+                        original = str(df.iloc[i][col])
+                        cleaned = str(refined_df.iloc[i][col])
+                        if original != cleaned:
+                            print(f"    Row {i+1}: '{original}' → '{cleaned}'")
+        
+        print(f"\n{'='*80}")
+        print(f"DATA REFINEMENT COMPLETE")
+        print(f"{'='*80}\n")
+        
+        return refined_df
+    
+    def _extract_numbers(self, text):
+        """Extract only numbers from text"""
+        import re
+        if pd.isna(text) or text == '':
+            return ''
+        # Extract all digits
+        numbers = re.findall(r'\d+', str(text))
+        return ''.join(numbers)
+    
+    def _extract_letters_only(self, text):
+        """Extract only letters and spaces from text"""
+        import re
+        if pd.isna(text) or text == '':
+            return ''
+        # Keep only letters and spaces, remove numbers and special characters
+        cleaned = re.sub(r'[^a-zA-Z\s]', '', str(text))
+        # Remove extra spaces
+        cleaned = ' '.join(cleaned.split())
+        return cleaned.strip()
+    
+    def _clean_address(self, text):
+        """Clean address by removing unwanted special characters"""
+        import re
+        if pd.isna(text) or text == '':
+            return ''
+        # Remove specific unwanted characters: *, |, ", :, and other problematic ones
+        text = str(text)
+        # Remove: * | " : ~ ` ^ { } [ ] < >
+        unwanted_chars = ['*', '|', '"', ':', '~', '`', '^', '{', '}', '[', ']', '<', '>', ')', '(']
+        for char in unwanted_chars:
+            text = text.replace(char, '')
+        
+        # Remove excessive special characters but keep basic punctuation (. , - /)
+        text = re.sub(r'[^\w\s.,\-/()&]', '', text)
+        
+        # Remove extra spaces
+        text = ' '.join(text.split())
+        
+        return text.strip()
+
 
 # -------------------------------------------
 # Orchestrator
@@ -521,7 +616,7 @@ class OCRExtraction:
 class OCR:
     def __init__(self, image_path, output_dir="outputs", preprocessing='advanced', 
                  tesseract_config='--psm 6 --oem 1', min_conf=0, show=False,
-                 header_keywords=None, table_start_row=17):
+                 header_keywords=None, table_start_row=17, refine_data=True):
         self.image_path = image_path
         self.output_dir = output_dir
         self.preprocessing = preprocessing
@@ -530,6 +625,7 @@ class OCR:
         self.show = show
         self.header_keywords = header_keywords or ['NAME', 'NAMES', 'ADDRESS', 'DATE', 'AMOUNT']
         self.table_start_row = table_start_row
+        self.refine_data = refine_data  # Whether to clean/refine extracted data
 
     def run(self):
         print(f"\n{'='*80}")
@@ -578,13 +674,30 @@ class OCR:
         )
         print(f"✓ Table structure created with proper coordinate mapping\n")
         
+        # Step 6.5: Refine data (clean up columns)
+        if self.refine_data:
+            print("[STEP 6.5] Refining and cleaning table data...")
+            df_refined = extractor.refine_table_data(df)
+            print(f"✓ Data refinement complete\n")
+        else:
+            df_refined = df
+        
         # Step 7: Save all results
         print("[STEP 7] Saving results...")
         extractor.save_results(self.output_dir)
-        extractor.save_table_to_excel(df, f"{self.output_dir}/table_extracted.xlsx")
-        extractor.save_table_to_csv(df, f"{self.output_dir}/table_extracted.csv")
-        extractor.save_table_to_text(df, f"{self.output_dir}/table_structure.txt")
-        print(f"✓ All results saved to {self.output_dir}\n")
+        
+        # Save both raw and refined versions
+        extractor.save_table_to_excel(df, f"{self.output_dir}/table_extracted_raw.xlsx")
+        extractor.save_table_to_csv(df, f"{self.output_dir}/table_extracted_raw.csv")
+        extractor.save_table_to_text(df, f"{self.output_dir}/table_structure_raw.txt")
+        
+        if self.refine_data:
+            extractor.save_table_to_excel(df_refined, f"{self.output_dir}/table_extracted_refined.xlsx")
+            extractor.save_table_to_csv(df_refined, f"{self.output_dir}/table_extracted_refined.csv")
+            extractor.save_table_to_text(df_refined, f"{self.output_dir}/table_structure_refined.txt")
+            print(f"✓ Both raw and refined versions saved to {self.output_dir}\n")
+        else:
+            print(f"✓ Raw results saved to {self.output_dir}\n")
 
         # Step 8: Optional display
         if self.show:
@@ -597,7 +710,8 @@ class OCR:
         print(f"OCR PIPELINE COMPLETED SUCCESSFULLY")
         print(f"{'='*80}\n")
         
-        return df, extractor
+        # Return refined version if available, otherwise raw
+        return (df_refined if self.refine_data else df), extractor
 
 
 # -------------------------------------------
@@ -675,7 +789,7 @@ if __name__ == "__main__":
     # Example usage
     img_path = "img.jpg"
 
-    # Option 1: Run full pipeline
+    # Option 1: Run full pipeline with data refinement
     pipeline = OCR(
         image_path=img_path,
         output_dir="outputs",
@@ -683,8 +797,9 @@ if __name__ == "__main__":
         tesseract_config='--psm 6 --oem 1',
         min_conf=0,
         show=False,
-        header_keywords=['NAME', 'CHILDREN', 'AGE', 'ADDRESS', 'GUARDIAN', 'PARENT'],  # Keywords for your 5 columns
-        table_start_row=17  # Start extracting table data from row 17
+        header_keywords=['NAME', 'CHILDREN', 'AGE', 'ADDRESS', 'GUARDIAN', 'PARENT'],
+        table_start_row=17,
+        refine_data=True  # Enable data refinement/cleaning
     )
     df, extractor = pipeline.run()
     
@@ -694,9 +809,15 @@ if __name__ == "__main__":
     print("="*80)
     print(f"DataFrame shape: {df.shape}")
     print(f"Columns: {list(df.columns)}")
-    print(f"\nFirst 5 rows:")
+    print(f"\nFirst 5 rows (refined):")
     print(df.head())
     print("="*80)
+    
+    print("\nOutput files created:")
+    print("  - table_extracted_raw.xlsx (original OCR output)")
+    print("  - table_extracted_refined.xlsx (cleaned data)")
+    print("  - table_structure_raw.txt (original text table)")
+    print("  - table_structure_refined.txt (cleaned text table)")
     
     # Option 2: Run benchmark (uncomment to use)
     # quick_benchmark(img_path)
