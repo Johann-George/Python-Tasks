@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import declarative_base
-from config.db import get_engine
+from config.db import Database
 
 Base = declarative_base()
 
@@ -20,4 +20,6 @@ class Order(Base):
     quantity = Column(Integer)
     cust_id = Column(Integer, ForeignKey('customer.id'))
 
-Base.metadata.create_all(get_engine())
+
+db = Database()
+Base.metadata.create_all(db.get_engine())
