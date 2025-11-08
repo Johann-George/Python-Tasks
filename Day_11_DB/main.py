@@ -1,9 +1,8 @@
 from sqlalchemy import func
 import pandas as pd
 from pydantic import ValidationError
-from model.models import Customer, Order
-from crud.order import update_order, create_order, get_order_by_id
-from crud.customer import create_customer, fetch_all_customers_with_total_spending, compute_total_spending, update_customer
+from crud.order import Order
+from crud.customer import Customer
 from schemas.schema import CustomerInput, OrderInput
 
 def add_customer_with_orders():
@@ -13,7 +12,7 @@ def add_customer_with_orders():
         email = input("Enter your email:")
         phone = input("Enter your phone no:")
         customer_data = CustomerInput(name, email, phone)
-        new_customer = create_customer(customer_data.name, customer_data.email, customer_data.phone)
+        new_customer = Customer.create_customer(customer_data.name, customer_data.email, customer_data.phone)
 
     except ValidationError as e:
         print("Invalid customer data")
@@ -35,7 +34,7 @@ def add_customer_with_orders():
             item_price = int(input("Enter the price of the item:"))
             item_quantity = int(input("Enter the quantity:"))
             order_data = OrderInput(item_name=item_name, item_price=item_price, item_quantity=item_quantity)
-            create_order(order_data.item_name, order_data.item_price, order_data.item_quantity, new_customer.id)
+            Order.create_order(order_data.item_name, order_data.item_price, order_data.item_quantity, new_customer.id)
         except ValidationError as e:
             print("Invalid data order")
             print(e)
@@ -44,25 +43,25 @@ def add_customer_with_orders():
 
 
 def calculate_total_value(order_id: int):
-    order = get_order_by_id(order_id)
+    order = Order.get_order_by_id(order_id)
     update_price = int(input("Do you want to update price (0/1):"))
     update_quantity = int(input("Do you want to update quantity (0/1):"))
     if update_price:
         updated_price = float(input("Enter the updated price:"))
-        update_order(order.id, price=updated_price)
+        Order.update_order(order.id, price=updated_price)
     if update_quantity:
         updated_quantity = int(input("Enter the updated quantity:"))
-        update_order(order.id, quantity=updated_quantity)
-    updated_order = get_order_by_id(order_id) 
+        Order.update_order(order.id, quantity=updated_quantity)
+    updated_order = Order.get_order_by_id(order_id) 
     return updated_order.price * updated_order.quantity
 
 def fetch_all_customer_and_spendings():
-    results = fetch_all_customers_with_total_spending()
+    results = Customer.fetch_all_customers_with_total_spending()
     df = pd.DataFrame(results, columns=["Customer ID", "Customer Name", "Email", "Phone", "Total Spending"])
     return df
 
 def update_loyalty_level():
-    spending_data = compute_total_spending()
+    spending_data = Customer.compute_total_spending()
 
     for customer_id, total_spending in spending_data:
         if total_spending > 10000:
@@ -72,7 +71,7 @@ def update_loyalty_level():
         else:
             level = "Bronze"
 
-        update_customer(customer_id=customer_id, loyalty_level=level) 
+        Customer.update_customer(customer_id=customer_id, loyalty_level=level) 
 
 
 if __name__ == "__main__":
