@@ -1,8 +1,9 @@
 from model.models import Order 
 from config.db import db
 
-class Order:
+class OrderService:
 
+    @staticmethod
     def create_order(name: str, price: float, quantity: int, cust_id: int):
         try:
             with db.get_session() as session:
@@ -15,6 +16,7 @@ class Order:
             print("An unexpected error occured:", e)
 
         
+    @staticmethod
     def update_order(order_id: int, name: str = None, price: float = None, quantity: int = None):
         try:
             with db.get_session() as session:
@@ -34,6 +36,7 @@ class Order:
             print("An unexpected error occured:", e)
         
 
+    @staticmethod
     def get_order_by_id(order_id: int):
         try:
             with db.get_session() as session:

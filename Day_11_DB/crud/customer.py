@@ -2,8 +2,9 @@ from model.models import Customer, Order
 from config.db import db
 from sqlalchemy import func
 
-class Customer:
+class CustomerService:
 
+    @staticmethod
     def create_customer(name: str, email: str, phone: str = None):
         try:
             with db.get_session() as session:
@@ -15,7 +16,7 @@ class Customer:
         except Exception as e:
             print("An unexpected error occured:",e)
 
-
+    @staticmethod
     def get_customer_details(customer_id: int=None):
         try:
             with db.get_session() as session:
@@ -30,6 +31,7 @@ class Customer:
     #     with get_session() as session:
     #         return session.query(Customer).all()
         
+    @staticmethod
     def update_customer(customer_id: int, name: str = None, email: str = None, phone: str = None, loyalty_level: str = None):
         try:
             with db.get_session() as session:
@@ -50,6 +52,7 @@ class Customer:
         except Exception as e:
             print("An unexpected error occured:",e)
 
+    @staticmethod
     def delete_customer(customer_id: int):
         try:
             with db.get_session() as session:
@@ -62,7 +65,7 @@ class Customer:
         except Exception as e:
             print("An unexpected error occured:",e)
 
-
+    @staticmethod
     def fetch_all_customers_with_total_spending():
         try:
             with db.get_session() as session:
@@ -85,6 +88,7 @@ class Customer:
             print("An unexpected error occured:",e)
 
 
+    @staticmethod
     def compute_total_spending():
         try:
             with db.get_session() as session:

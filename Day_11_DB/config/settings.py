@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
 
 class Settings(BaseSettings):
 
@@ -9,7 +10,10 @@ class Settings(BaseSettings):
     PORT: int
     DATABASE: str
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=str(Path(__file__).resolve().parent.parent / ".env"), 
+        env_file_encoding="utf-8"
+    )
 
     def database_url(self):
         return f"mysql+pymysql://{self.DB_USERNAME}:{self.PASSWORD}@{self.HOSTNAME}:{self.PORT}/{self.DATABASE}"
