@@ -6,7 +6,21 @@ from crud.customer import CustomerService
 from schemas.schema import CustomerInput, OrderInput
 
 def add_customer_with_orders():
+    """
+        Stores the customer data along with their orders to the database
 
+        Arguments: 
+            None
+
+        Returns: 
+            None
+
+        Raises:
+            ValidationError: 
+                Any errors in the value the customer inputs
+            ValueError:
+                Any input other than a digit
+    """
     try:
         name = input("Enter your name:")
         email = input("Enter your email:")
@@ -43,35 +57,92 @@ def add_customer_with_orders():
 
 
 def calculate_total_value(order_id: int):
-    order = OrderService.get_order_by_id(order_id)
-    update_price = int(input("Do you want to update price (0/1):"))
-    update_quantity = int(input("Do you want to update quantity (0/1):"))
-    if update_price:
-        updated_price = float(input("Enter the updated price:"))
-        OrderService.update_order(order.id, price=updated_price)
-    if update_quantity:
-        updated_quantity = int(input("Enter the updated quantity:"))
-        OrderService.update_order(order.id, quantity=updated_quantity)
-    updated_order = OrderService.get_order_by_id(order_id) 
-    return updated_order.price * updated_order.quantity
+    """
+        Computes the total order amount based on the updated value of 
+        price or quantity
+
+        Arguments: 
+            order_id: The ID of the order
+
+        Returns: 
+            The total amount after updation
+
+        Raises:
+            ValueError:
+                Any input other than a digit
+            Exception:
+                Any unexpected errors
+    """
+    try:
+        order = OrderService.get_order_by_id(order_id)
+        update_price = int(input("Do you want to update price (0/1):"))
+        update_quantity = int(input("Do you want to update quantity (0/1):"))
+        if update_price:
+            updated_price = float(input("Enter the updated price:"))
+            OrderService.update_order(order.id, price=updated_price)
+        if update_quantity:
+            updated_quantity = int(input("Enter the updated quantity:"))
+            OrderService.update_order(order.id, quantity=updated_quantity)
+        updated_order = OrderService.get_order_by_id(order_id) 
+        return updated_order.price * updated_order.quantity
+    except ValueError:
+        print("The input must contain only digits")
+    except Exception as e:
+        print("An unexpected error occured in calculate_total_value():",e)
 
 def fetch_all_customer_and_spendings():
-    results = CustomerService.fetch_all_customers_with_total_spending()
-    df = pd.DataFrame(results, columns=["Customer ID", "Customer Name", "Email", "Phone", "Total Spending"])
-    return df
+    """
+        Fetches all the customer details and thier total spending
+        in the descending order
+
+        Arguments: 
+            None
+
+        Returns: 
+            The dataframe containing the customer details
+
+        Raises:
+            ValueError:
+                Any input other than a digit
+            Exception:
+                Any unexpected errors
+    """
+    try:
+        results = CustomerService.fetch_all_customers_with_total_spending()
+        df = pd.DataFrame(results, columns=["Customer ID", "Customer Name", "Email", "Phone", "Total Spending"])
+        return df
+    except Exception as e:
+        print("An unexpected error occured fetch_all_customer_and_spendings():", e)
 
 def update_loyalty_level():
-    spending_data = CustomerService.compute_total_spending()
+    """
+        Computes the total spending of each customer and updates their
+        loyalty level
 
-    for customer_id, total_spending in spending_data:
-        if total_spending > 10000:
-            level = "Gold"
-        elif total_spending >= 5000:
-            level = "Silver"
-        else:
-            level = "Bronze"
+        Arguments: 
+            None
 
-        CustomerService.update_customer(customer_id=customer_id, loyalty_level=level) 
+        Returns: 
+            None
+
+        Raises:
+            Exception:
+                Any unexpected errors
+    """
+    try:
+        spending_data = CustomerService.compute_total_spending()
+
+        for customer_id, total_spending in spending_data:
+            if total_spending > 10000:
+                level = "Gold"
+            elif total_spending >= 5000:
+                level = "Silver"
+            else:
+                level = "Bronze"
+
+            CustomerService.update_customer(customer_id=customer_id, loyalty_level=level) 
+    except Exception as e:
+        print("An unexpected error occurred update_loyalty_level():", e)
 
 
 if __name__ == "__main__":
