@@ -1,9 +1,9 @@
-from sqlalchemy import func
 import pandas as pd
 from pydantic import ValidationError
 from crud.order import OrderService
 from crud.customer import CustomerService
 from schemas.schema import CustomerInput, OrderInput
+from model.models import LoyaltyLevel
 
 def add_customer_with_orders():
     """
@@ -134,11 +134,11 @@ def update_loyalty_level():
 
         for customer_id, total_spending in spending_data:
             if total_spending > 10000:
-                level = "Gold"
+                level = LoyaltyLevel.GOLD
             elif total_spending >= 5000:
-                level = "Silver"
+                level = LoyaltyLevel.SILVER
             else:
-                level = "Bronze"
+                level = LoyaltyLevel.BRONZE
 
             CustomerService.update_customer(customer_id=customer_id, loyalty_level=level) 
     except Exception as e:
