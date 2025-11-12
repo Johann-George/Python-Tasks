@@ -1,0 +1,78 @@
+================================================================================
+ROW-WISE TEXT EXTRACTION
+================================================================================
+
+Row   1 (y=  86, conf=29.0%): via pt, S18
+Row   2 (y=  97, conf=42.0%): u
+Row   3 (y= 108, conf=46.8%): ] if i i
+Row   4 (y= 119, conf=65.9%): School Census No. I ith b} i |
+Row   5 (y= 130, conf=63.5%): of District y Ht
+Row   6 (y= 156, conf=74.9%): Albany County, Wyoming ii il | it i iit
+Row   7 (y= 177, conf=20.5%): renetntmntine inte me srecmmanimin LEU IE | a
+Row   8 (y= 197, conf=31.4%): Turbos the semen uf al children between 6 mad ol youre aad § y2
+Row   9 (y= 219, conf=35.6%): Couns atl hers woe are ie Will be ok Uy the 3OKR tas «€ ApTT H fe 1 8 7 rp
+Row  10 (y= 239, conf=17.5%): aig W i a
+Row  11 (y= 252, conf=48.0%): iy is Eh, hh
+Row  12 (y= 267, conf=30.7%): dy t q
+Row  13 (y= 278, conf=23.2%): - een oe LRN = tomes [cr reoronscams |B BE pa a] oe] TRE al
+Row  14 (y= 291, conf=37.0%): fin]
+Row  15 (y= 314, conf=43.0%): 1
+Row  16 (y= 325, conf=88.0%): |
+Row  17 (y= 343, conf=48.2%): 2) Deen 7 Inte fade 19 |707 . Coasr| Deano, " E, in 4
+Row  18 (y= 366, conf=77.2%): 8] Delley Carl 15 612 Pine Delley frank 1
+Row  19 (y= 381, conf=54.5%): 4| Deniols Louise 24 | Mo. Cedar] Baniela 3, A. i
+Row  20 (y= 393, conf=25.0%): >
+Row  21 (y= 404, conf=25.6%): | ” Rate 4/ ¢ : : : i} i |
+Row  22 (y= 426, conf=32.2%): 7 ” Riley ie * 7 weuton Ba
+Row  23 (y= 442, conf=50.5%): 8| * Tosa wl: 7 Ue 2 |
+Row  24 (y= 457, conf=30.4%): 9] " Yoo ie . * . 1
+Row  25 (y= 473, conf=23.3%): gos Iesie 7 * : " 1
+Row  26 (y= 488, conf=50.1%): 11 7 Bessie wel” " 7. i |
+Row  27 (y= 503, conf=38.6%): i . + Floyd * ” oA
+Row  28 (y= 518, conf=53.9%): 1g drew uargarot 14] 163 Premoht Marphy J. L. 1
+Row  29 (y= 541, conf=44.7%): 4 Dapton " Irene ie 12 | 261 ™ Bogs.) "Dowson ™ 3. 1 2
+Row  30 (y= 564, conf=66.6%): dvenhse irs. Edna 16 | 120 ore Donhan Art
+Row  31 (y= 579, conf=62.4%): if Dewoll Leslie 8 Hornie 34) Dewali C. Hy. i
+Row  32 (y= 594, conf=67.5%): 1g Dobdy Georgina a 20893 Bobby 4. 1
+Row  33 (y= 610, conf=40.4%): 1g * Semel uw " . a |
+Row  34 (y= 624, conf=48.2%): 2g" Mary 1 ” ° i
+Row  35 (y= 641, conf=56.1%): zy 5 Davie 9 . : 2
+Row  36 (y= 655, conf=52.8%): 2 faneta ” ” a
+Row  37 (y= 671, conf=41.2%): 2§Dewel iyrtie 7 | 920-4 Dewol Leo 1
+Row  38 (y= 686, conf=65.2%): 24Dawson Fred is 612 Gr. | Dawson Mrs. F. a
+Row  39 (y= 700, conf=40.2%): "Thoms is ” ” a |
+Row  40 (y= 717, conf=73.9%): z2¢Duvie Kenneth a 410-7 Davis D. G. 1
+Row  41 (y= 733, conf=35.6%): g' =" Risic 1 . ” 1
+Row  42 (y= 750, conf=30.1%): 2bDozle Sevan 813-7 | Doyeet. 3. 1
+Row  43 (y= 765, conf=49.0%): Bowing Freak, BR 113-7 Dowaing ks J. |
+Row  44 (y= 780, conf=43.5%): 3 " rol x . 1
+Row  45 (y= 795, conf=55.2%): 64 Dobbins Maxine i 1007-7 Dobbing HM. 5. a|
+Row  46 (y= 810, conf=62.5%): 3 . Jas. Be il 7 . 1
+Row  47 (y= 830, conf=18.8%): " Geo.k. yy , . " . L
+Row  48 (y= 841, conf=64.0%): Minnte !
+Row  49 (y= 856, conf=66.7%): 3$Ducen John 6 2009-2 Duncan L. A. 1 |
+Row  50 (y= 872, conf=63.3%): ehDay Lloyd x 2006-8 Dey J. By
+Row  51 (y= 887, conf=65.8%): 37 Dano Fania 16 418-9 Denn E. 2, | 1
+Row  52 (y= 902, conf=56.0%): Durxee Burton 46 906 Park Durkee i. Re a !
+Row  53 (y= 919, conf=47.7%): of " Rllen i " 1
+Row  54 (y= 932, conf=77.2%): 40 Duncan Ches. Ww 355 Uni. Krueger Otto
+Row  55 (y= 955, conf=52.3%): 42 hd Davigon Danson Corine Foal 18 7 | 15d=4 913 lst Davison Dexson L. Lea.kev. L
+Row  56 (y= 988, conf=50.6%): 42) Dewey dansan Ide 26| 914 Grand! knight g. - 1 1
+Row  57 (y=1003, conf=66.1%): 44 Mildred . 19 2020 @rand) Duncon Eade 1
+Row  58 (y=1018, conf=49.1%): 45) Day Richard 8 e1g-13th boy Babe
+Row  59 (y=1033, conf=33.0%): 46)" enne t] uke
+Row  60 (y=1049, conf=41.9%): 47| DeHart Brace hi S12 suster Dexort ,
+Row  61 (y=1064, conf=33.0%): 4a|* Robort era .
+Row  62 (y=1088, conf=28.4%): Sef povie note ¥ |igoo Gact.] gavia tossed y |
+Row  63 (y=1110, conf=71.3%): $1) Daley ann 19 921 Kearn,| Bacus Sere urr.
+Row  64 (y=1126, conf=40.7%): 2] velzell Unis O [soe vlark pal vevitt ell Mane b
+Row  65 (y=1141, conf=46.2%): $s] Devitt Orval 146 [eos Lewia ais. |
+Row  66 (y=1157, conf=57.3%): BA) Dodge Lucile AG MEL shine wodee dame 1
+Row  67 (y=1174, conf=19.6%): “s5} wore is” Lt }
+Row  68 (y=1190, conf=43.6%): 5e] 7 Stontey 3 [if * 1 |
+Row  69 (y=1205, conf=19.1%): 57] * fuged 2 edeee eanel? os :
+Row  70 (y=1218, conf=35.4%): t3| Deniele Carclyn G (BoveD a feed 1 out a
+Row  71 (y=1237, conf=38.8%): po) vudloy anna werte MS 49 corns undley area 1 : a
+Row  72 (y=1253, conf=25.8%): Bul froa al | AN wt
+Row  73 (y=1272, conf=33.7%): 6a] voxte Choe, Le 40 #ktet vovde wore 2, 4 | Fis
+Row  74 (y=1289, conf=29.2%): és Ler “hy . *

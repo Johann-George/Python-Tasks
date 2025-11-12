@@ -4,12 +4,14 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-python-dotenv = "*"
-cryptography = "*"
+fastapi = "*"
+uvicorn = "*"
+opencv-python = "*"
+pytesseract = "*"
 pandas = "*"
-pydantic = {extras = ["email"], version = "*"}
-pydantic-settings = "*"
-pymysql = "*"
+numpy = "*"
+httpx = "*"
+openpyxl = "*"
 
 [dev-packages]
 
