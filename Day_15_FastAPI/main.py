@@ -2,7 +2,6 @@ from fastapi import FastAPI, File, UploadFile
 from datetime import datetime
 import sys
 import os
-import httpx
 from model.models import Status
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -33,7 +32,7 @@ async def extract_df(file: UploadFile = File(...)):
     )
     df, extractor = pipeline.run()
     OCRService.create_ocr(file_name=file.filename, ocr_data=df.to_json(orient='records'), status=Status.SUCCESS, created_at=datetime.now())
-    return {"Successfully updated the data to the db!"}
+    return {"message":"Successfully updated the data to the db!"}
 
 
 
