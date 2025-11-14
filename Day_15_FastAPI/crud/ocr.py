@@ -38,26 +38,26 @@ class OCRService:
 
     @staticmethod
     def delete_ocr(ocr_id: int):
-        try:
-            with db.get_session() as session:
-                ocr_obj = session.query(OCR).filter(OCR.id == ocr_id).first()
-                if not ocr_obj:
-                    raise HTTPException(status_code=404, detail="OCR not found")
-                session.delete(ocr_obj)
-                session.commit()
-        except Exception as e:
-            print("An unexpected error occured delete_ocr():",e)
+        with db.get_session() as session:
+            if not ocr_id:
+                raise HTTPException(status_code=422, detail="Please provide an ID")
+            ocr_obj = session.query(OCR).filter(OCR.id == ocr_id).first()
+            if not ocr_obj:
+                raise HTTPException(status_code=404, detail="OCR not found")
+            session.delete(ocr_obj)
+            session.commit()
+            return False
 
     @staticmethod
     def update_ocr(ocr_id: int, ocr_data: List[ocr_data]):
-        try:
-            with db.get_session() as session:
-                ocr = session.query(OCR).filter(OCR.id == ocr_id).first()
-                if not ocr:
-                    raise HTTPException(status_code=404, detail="ocr entry not found")
-                ocr.ocr_data = str(ocr_data)
-                ocr.updated_at = datetime.now()
-                session.commit()
-                session.refresh(ocr)
-        except Exception as e:
-            print("An unexpected error occured update_ocr():", e)
+        with db.get_session() as session:
+            if not ocr_id:
+                raise HTTPException(status_code=404, detail="Please provide an ID")
+            ocr = session.query(OCR).filter(OCR.id == ocr_id).first()
+            if not ocr:
+                raise HTTPException(status_code=404, detail="ocr entry not found")
+            ocr.ocr_data = str(ocr_data)
+            ocr.updated_at = datetime.now()
+            session.commit()
+            session.refresh(ocr)
+            return {"detail": "Row updated successfully"}

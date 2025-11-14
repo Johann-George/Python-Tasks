@@ -1,10 +1,11 @@
-from fastapi import FastAPI, File, UploadFile, Request
+from fastapi import FastAPI, File, UploadFile, Request, HTTPException, Response, status
 from datetime import datetime
 import traceback
 import sys
 import os
 import json
 import logging
+from typing import Union
 from model.models import Ocr_Status
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -15,11 +16,6 @@ from crud.ocr import OCRService
 app = FastAPI()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(message)s')
-
-@app.get("/api/v1/ocr/")
-async def greet():
-    logging.info("Demo greeting")
-    return {"message": "Hello!"}
 
 @app.post("/api/v1/ocr/store")
 async def extract_df(file: UploadFile = File(...)):
@@ -56,34 +52,31 @@ async def extract_df(file: UploadFile = File(...)):
     finally:
         os.remove(file_path)
 
-@app.get("/api/v1/ocr/{id}")
-async def get_details(id: int):
-    try:
-        logging.info("Get API invoked!")
-        return OCRService.get_ocr(id)
-    except Exception as e:
-        print("An error occured get_details():", e)
+@app.get("/api/v1/ocr/")
+async def get_details(response: Response, id: int | None = None):
+    logging.info("Get API invoked!")
+    query = OCRService.get_ocr(id)
+    if not query:
+        raise HTTPException(status_code=404, detail="Invalid ID entered")
+    return query
 
-@app.put("/api/v1/ocr/{id}", response_model=dict)
-async def update_details(id: int, request: Request):
+@app.put("/api/v1/update_ocr/")
+async def update_details(request: Request, id: int | None = None ):
     try:
         logging.info("Put API invoked")
         raw_body = await request.body()
+        if not raw_body: 
+            raise HTTPException(status_code=500, detail="Please provide a valid Dataframe")
         json_string = raw_body.decode("utf-8")
         data = json.loads(json_string)
         logging.info("Retrieved the data from the request body")
-        OCRService.update_ocr(id, data)
-        logging.info("Data updated successfully to the db")
-        return {"message": "Row updated successfully"}
-    except Exception as e:
-        print("An error occured update_details():",e)
+        return OCRService.update_ocr(id, data)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail="Please provide a valid Dataframe")
 
-@app.delete("/api/v1/ocr/{id}", response_model=dict)
-async def delete_details(id: int):
-    try:
-        logging.info("Delete API invoked")
-        OCRService.delete_ocr(id)
-        logging.info("Data deleted successfully")
-        return {"message": "Row successfully deleted"}
-    except Exception as e:
-        print("An error occured delete_details():", e)
+@app.delete("/api/v1/delete_ocr/", response_model=dict)
+async def delete_details(id: int | None = None):
+    logging.info("Delete API invoked")
+    OCRService.delete_ocr(id)
+    logging.info("Data deleted successfully")
+    return {"detail": "Record successfully deleted"}
