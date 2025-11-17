@@ -1,0 +1,5 @@
+train: /home/johannvgeorge/Downloads/Updated_Yolo/images
+val: /home/johannvgeorge/Downloads/Yolo_validation/images
+
+nc: <number_of_classes>  # e.g., 3 for 'person', 'car', 'bike'
+names: ['class1', 'class2', 'class3'] # Class names from classes.txt
