@@ -1,5 +1,6 @@
-train: /home/johannvgeorge/Downloads/Updated_Yolo/images
-val: /home/johannvgeorge/Downloads/Yolo_validation/images
+train: C:/Users/johan/Downloads/Yolo_Task/train/images
+val: C:/Users/johan/Downloads/Yolo_Task/val/images
+test: C:/Users/johan/Downloads/Yolo_Task/test/images
 
-nc: <number_of_classes>  # e.g., 3 for 'person', 'car', 'bike'
-names: ['class1', 'class2', 'class3'] # Class names from classes.txt
+nc: 5 # e.g., 3 for 'person', 'car', 'bike'
+names: ['Full Address', 'Description of Qualifying Property', 'Number of Electors', 'Place of Abode', 'Nature of Qualification'] # Class names from classes.txt
