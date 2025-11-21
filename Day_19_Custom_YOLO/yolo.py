@@ -5,40 +5,49 @@ print(cv2.__version__)
 
 print("OpenCV version:", cv2.__version__)
 
-model = YOLO('C:/Users/johan/Documents/Projects/Python-Tasks/Day_19_YOLO/runs/detect/train6/weights/best.pt')  # load a pretrained model (recommended for training)
+image_path = 'C:/Users/johan/Downloads/Yolo_Task/test/images/63228_78022002696_4063-00063.jpg'
 
-image_path = 'C:/Users/johan/Downloads/Yolo_Task/test/images/63228_78022002696_4063-00022.jpg'
-img = cv2.imread(image_path)
+def perform_yolo_algo():
 
-results = model(
-    image_path
-)
+    model = YOLO('C:/Users/johan/Documents/Projects/Python-Tasks/Day_19_YOLO/runs/detect/train6/weights/best.pt')  # load a pretrained model (recommended for training)
+    img = cv2.imread(image_path)
 
-x_coords = []
+    results = model(
+        image_path
+    )
 
-for r in results:
-    boxes = r.boxes
-    for box in boxes:
-        x1, y1, x2, y2 = map(int, box.xyxy[0]) 
-        width = x2 - x1
-        height = y2 - y1
+    x_coords = []
+    full_add_x_coords = []
 
-        class_id =  int(box.cls[0])
-        conf = float(box.conf[0])
+    for r in results:
+        boxes = r.boxes
+        for box in boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0]) 
+            width = x2 - x1
+            height = y2 - y1
 
-        class_name = model.names[class_id]
+            class_id =  int(box.cls[0])
+            conf = float(box.conf[0])
 
-        print(f"Object: {class_name}, Confidence: {conf:.2f}, Width: {width}, Height: {height}")
+            print("Entered here")
+            class_name = model.names[class_id]
+            if class_name == "Full Address":
+                full_add_x_coords.append(x1)
+            else:
+                x_coords.append(x1)
 
-        x_coords.append(int((x1 + x2) / 2))
-        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            print(f"Object: {class_name}, Confidence: {conf:.2f}, Width: {width}, Height: {height}, X1:{x1}, X2:{x2}")
 
-        label_text = f"{class_name} {conf:.2f}"
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-        cv2.putText(img, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            label_text = f"{class_name} {conf:.2f}"
 
-cv2.imwrite(image_path, img)
-cv2.waitKey()
-cv2.destroyAllWindows()
+            cv2.putText(img, label_text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+    cv2.imwrite('yolo.jpg', img)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
+
+    return x_coords, full_add_x_coords
 
         
