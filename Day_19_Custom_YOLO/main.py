@@ -1,49 +1,49 @@
-# import cv2
+import cv2
 import json
 import pandas as pd
 import os
 import json
-import re
 from yolo import perform_yolo_algo
+import re
 
-# def draw_boxes_from_json(image_path, json_data):
-#     img = cv2.imread(image_path)
-#     annotations = json_data.get("textAnnotations", [])
+def draw_boxes_from_json(image_path, json_data):
+    img = cv2.imread(image_path)
+    annotations = json_data.get("textAnnotations", [])
 
-#     for annotation in annotations:
-#         if "boundingPoly" in annotation and "vertices" in annotation["boundingPoly"]:
-#             vertices = annotation["boundingPoly"]["vertices"]
-#             if len(vertices) == 4:
-#                 x_coords = [v.get("x", 0) for v in vertices]
-#                 y_coords = [v.get("y", 0) for v in vertices]
+    for annotation in annotations:
+        if "boundingPoly" in annotation and "vertices" in annotation["boundingPoly"]:
+            vertices = annotation["boundingPoly"]["vertices"]
+            if len(vertices) == 4:
+                x_coords = [v.get("x", 0) for v in vertices]
+                y_coords = [v.get("y", 0) for v in vertices]
 
-#                 xmin = min(x_coords)
-#                 ymin = min(y_coords)
-#                 xmax = max(x_coords)
-#                 ymax = max(y_coords)
+                xmin = min(x_coords)
+                ymin = min(y_coords)
+                xmax = max(x_coords)
+                ymax = max(y_coords)
 
-#                 label = annotation.get("description", "")
+                label = annotation.get("description", "")
 
-#                 color = (0, 255, 0)
-#                 thickness = 2
-#                 cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, thickness)
+                color = (0, 255, 0)
+                thickness = 2
+                cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, thickness)
 
-#                 if label:
-#                     font = cv2.FONT_HERSHEY_SIMPLEX
-#                     font_scale = 0.5
-#                     text_color = (0, 0, 255)
-#                     cv2.putText(img, label, (xmin, ymin - 10), font, font_scale, text_color, thickness)
+                if label:
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 0.5
+                    text_color = (0, 0, 255)
+                    cv2.putText(img, label, (xmin, ymin - 10), font, font_scale, text_color, thickness)
 
-#     cv2.imwrite("bb.jpg", img)
-#     # cv2.imshow("Image with bounding boxes:", img)
-#     cv2.waitKey(0)
-#     cv2.destroyAllWindows()
+    cv2.imwrite("bb.jpg", img)
+    # cv2.imshow("Image with bounding boxes:", img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-# img_file_path = "C:/Users/johan/Downloads/dataset_1/dataset/63228_78022002696_4063-00063.jpg"
-# json_data = "C:/Users/johan/Downloads/dataset_1/dataset/63228_78022002696_4063-00063.json"
-# with open(json_data, 'r') as file:
-#     data_var = json.load(file)
-# draw_boxes_from_json(img_file_path, data_var)
+img_file_path = "/home/johannvgeorge/Downloads/dataset 1/dataset/63228_78022002696_4063-00063.jpg"
+json_data = "/home/johannvgeorge/Downloads/dataset 1/dataset/63228_78022002696_4063-00063.json"
+with open(json_data, 'r') as file:
+    data_var = json.load(file)
+draw_boxes_from_json(img_file_path, data_var)
 
 
 def load_ocr_data(json_path):
@@ -133,14 +133,39 @@ def build_table(rows, num_columns):
         row_data = [""] * num_columns
         
         row = sorted(row, key=lambda t: t["x"])
+
         for item in row:
             if item["column"] is not None:
-                row_data[item["column"]] += item["text"] + " "
+                cleaned = clean_text(item["text"])
+                if cleaned:  # only append non-empty results
+                    row_data[item["column"]] += cleaned + " "
 
         row_data = [col.strip() for col in row_data]
         final_table.append(row_data)
 
     return final_table
+
+def clean_text(text):
+    if text is None:
+        return ""
+
+    # Remove punctuations you don't want
+    text = re.sub(r'[./°\\•]', '', text)
+
+    # Remove leading 4-digit numbers
+    text = re.sub(r'^\d{4}\s*', '', text)
+
+    # Remove leading 3-digit numbers
+    text = re.sub(r'^\d{3}\s*', '', text)
+
+    # Remove isolated 4-digit numbers anywhere
+    text = re.sub(r'\b\d{4}\b', '', text)
+
+    # Remove multiple spaces
+    text = re.sub(r'\s+', ' ', text).strip()
+
+    return text
+
 
 def generate_table(json_path, x_coords):
     # Step 1: Load OCR JSON
@@ -224,7 +249,7 @@ if __name__ == "__main__":
     # extracted_data = process_text_annotations(json_data)
     # structured_data = organize_by_coordinates(extracted_data)
     # save_to_excel(structured_data, 'output_with_coordinates.xlsx')
-    json_path = 'C:/Users/johan/Downloads/dataset_1/dataset/63228_78022002696_4063-00063.json'
+    json_path = '/home/johannvgeorge/Downloads/dataset 1/dataset/63228_78022002696_4063-00063.json'
     x_coords, full_address_x_coords = perform_yolo_algo()
     df = pd.DataFrame(generate_table(json_path, x_coords))
     df.to_excel("output.xlsx", index=True)

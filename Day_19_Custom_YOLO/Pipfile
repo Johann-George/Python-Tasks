@@ -5,8 +5,8 @@ name = "pypi"
 
 [packages]
 ultralytics = "*"
-pandas = "*"
 openpyxl = "*"
+pandas = "*"
 
 [dev-packages]
 

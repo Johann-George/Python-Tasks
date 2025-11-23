@@ -2,14 +2,15 @@ import cv2
 from ultralytics import YOLO
 import numpy as np
 print(cv2.__version__)
-
+import torch
+print(torch.version.cuda)
 print("OpenCV version:", cv2.__version__)
 
-image_path = 'C:/Users/johan/Downloads/Yolo_Task/test/images/63228_78022002696_4063-00063.jpg'
+image_path = '/home/johannvgeorge/Downloads/dataset 1/dataset/63228_78022002696_4063-00063.jpg'
 
 def perform_yolo_algo():
 
-    model = YOLO('C:/Users/johan/Documents/Projects/Python-Tasks/Day_19_YOLO/runs/detect/train6/weights/best.pt')  # load a pretrained model (recommended for training)
+    model = YOLO('/home/johannvgeorge/Documents/projects/Python_Tasks/Day_19_YOLO/runs/detect/train6/weights/best.pt')  # load a pretrained model (recommended for training)
     img = cv2.imread(image_path)
 
     results = model(
