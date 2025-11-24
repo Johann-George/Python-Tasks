@@ -5,6 +5,7 @@ import os
 import json
 from yolo import perform_yolo_algo
 import re
+from openpyxl import load_workbook
 
 def draw_boxes_from_json(image_path, json_data):
     img = cv2.imread(image_path)
@@ -79,7 +80,7 @@ def assign_to_columns(ocr_data, x_coords):
     for text, x1, y1, x2, y2 in ocr_data:
         col_index = None
         
-        x_mid = (x1 + x2)/2
+        # x_mid = (x1 + x2)/2
         # determine column by x boundaries
         for i in range(len(x_coords) - 1):
             if x_coords[i] <= x2 < x_coords[i+1]:
@@ -99,32 +100,60 @@ def group_rows(table, threshold=25):
     table_sorted = sorted(table, key=lambda t: t["y"])
 
     rows = []
+    full_address = []
     current_row = []
     last_y = None
     i = 0
+    s = ""
     for item in table_sorted:
-        if i < 12:
+        if i < 35:
             i+=1
             continue
         if last_y is None:
             current_row.append(item)
-        elif item["text"] == "..." or item["text"] == ".":
+        elif item["text"] == "..." or item["text"] == "." or item["text"] == "..":
             continue
         elif abs(item["y"] - last_y) <= threshold:
             if item["text"].isdigit() and len(item["text"]) == 4:
                 continue
-            # item["text"] = re.sub(r'\d\d\d\d', '', item["text"])
             current_row.append(item)
         else:
-            rows.append(current_row)
-            current_row = [item]
+            print("Current Row=",current_row)
+            #     if item1["text"].isupper():
+            #         if s != "":
+            #             s += " " + item1["text"]
+            #         else:
+            #             s = item1["text"]
+            #         count_address = 1
+            #         break
+            # if count_address == 0:
+            #     full_address.append(s)
+            #     rows.append(current_row)
+            # current_row = [item]
+            count_address = 0
+            for item1 in current_row:
+                if item1["text"] != '':
+                    if not is_pascal_case(item1["text"]):
+                        count_address += 1
+            if count_address == 1 or count_address == 2 or count_address == 3:
+                s = ""
+                for item2 in current_row:
+                    if s != "":
+                        s+=" "
+                    s += item2["text"] 
+                    current_row = [item]
+            else:
+                full_address.append(s)
+                rows.append(current_row)
+                current_row = [item]
 
         last_y = item["y"]
 
     if current_row:
         rows.append(current_row)
+        full_address.append(s)
 
-    return rows
+    return rows, full_address
 
 def build_table(rows, num_columns):
     final_table = []
@@ -181,59 +210,12 @@ def generate_table(json_path, x_coords):
     table_assignments = assign_to_columns(ocr_data, x_coords)
 
     # Step 4: Group into rows
-    row_groups = group_rows(table_assignments)
+    row_groups, full_address = group_rows(table_assignments)
 
     # Step 5: Create final table
     final_table = build_table(row_groups, num_columns)
 
-    return final_table
-
-
-#not used
-def process_text_annotations(json_data):
-    """
-    Extracts description and top-left coordinates from textAnnotations.
-    """        
-
-    processed_data = [] 
-    for annotation in json_data.get('textAnnotations', []):
-        description = annotation.get('description', '').replace('\n', ' ')
-        vertices = annotation.get('boundingPoly', {}).get('vertices', [])
-        if vertices:
-            top_left_x = vertices[0].get('x', 0)
-            top_left_y = vertices[0].get('y', 0)
-        else:
-            top_left_x = 0
-            top_left_y = 0
-
-        processed_data.append({
-            'Description': description,
-            'TopLeftX': top_left_x,
-            'TopLeftY': top_left_y
-        })
-    return processed_data
-
-#Not used
-def organize_by_coordinates(processed_data, y_tolerance=10, x_tolerance=200):
-    processed_data.sort(key=lambda item: (item['TopLeftY'], item['TopLeftX']))
-
-    organized_rows = []
-    current_row = []
-
-    for item in processed_data:
-        if not current_row:
-            current_row.append(item)
-            continue
-
-        if abs(item['TopLeftY'] - current_row[0]['TopLeftY']) <= y_tolerance:
-            current_row.append(item)
-        else:
-            organized_rows.append([d['Description'] for d in current_row])
-            current_row = [item]
-    if current_row:
-        organized_rows.append([d['Description'] for d in current_row])
-
-    return processed_data
+    return final_table, full_address
 
 def save_to_excel(data, output_filename='output.xlsx'):
     """
@@ -243,6 +225,29 @@ def save_to_excel(data, output_filename='output.xlsx'):
     df.to_excel(output_filename, index=False, engine='openpyxl')
     print(f"Data successfully saved to {os.path.abspath(output_filename)}")
 
+def is_pascal_case_advanced(s):
+    if not s:
+        return False
+    
+    # Check for traditional PascalCase (e.g., 'MyVariableName')
+    # Starts with an uppercase letter, followed by any number of letters/digits,
+    # then optionally followed by more words starting with uppercase letters.
+    if re.fullmatch(r'([A-Z][a-zA-Z0-9]*)+', s):
+        return True
+
+    # Check for PascalCase-like phrases with spaces (e.g., 'John Street')
+    # Each word starts with an uppercase letter.
+    words = s.split()
+    if words and all(word and word[0].isupper() for word in words):
+        return True
+
+    return False
+
+def is_pascal_case(s):
+    # Check if the string is non-empty, starts with an uppercase letter, 
+    # and contains only letters and numbers (no spaces/underscores)
+    return bool(s) and s[0].isupper() and s.isalnum() and not re.search(r'[a-z][A-Z]', s) is None
+
 if __name__ == "__main__":
     # with open('C:/Users/johan/Downloads/dataset_1/dataset/63228_78022002696_4063-00063.json') as file:
     #     json_data = json.load(file)
@@ -251,5 +256,28 @@ if __name__ == "__main__":
     # save_to_excel(structured_data, 'output_with_coordinates.xlsx')
     json_path = '/home/johannvgeorge/Downloads/dataset 1/dataset/63228_78022002696_4063-00063.json'
     x_coords, full_address_x_coords = perform_yolo_algo()
-    df = pd.DataFrame(generate_table(json_path, x_coords))
+    table, full_address = generate_table(json_path, x_coords)
+    print("Table=", table)
+    df = pd.DataFrame(table, columns=['Names of Electors in full, Surname being first', 
+                                      'Place of Abode',
+                                      'Nature of Qualification',
+                                      'Description of Qualifying Property',
+                                    ])
+    column_to_split = df.iloc[:, 0]
+    print(column_to_split)
+    new_columns = column_to_split.str.split(',', expand=True)
+    df['First Name'] = new_columns[0]
+    df['Last Name'] = new_columns[1]
+    df['Sub Address'] = full_address
+    # updated_full_address = [word for word in full_address if any(char.isupper() for char in word)]
+    # updated_full_address = [item for item in full_address if is_pascal_case_advanced(item)]
+    # updated_full_address = [item for item in updated_full_address if not ' ' not in item]
+    # for i in range(len(full_address)-1, -1, -1):
+    #     word = full_address[i]
+    #     if word.islower() or ' ' not in word:
+    #         del full_address[i]
+    # print("Updated Full Address=",updated_full_address)
+    # df['Full Address'] = pd.Series(updated_full_address)
+    # df['Full Address'] = full_address
     df.to_excel("output.xlsx", index=True)
+    
