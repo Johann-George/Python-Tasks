@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import StickyHeadTable from './pages/StickyHeadTable'
+import StickyHeadTable from './components/StickyHeadTable.jsx'
+import Grid from '@mui/material/Grid'
+import Data from './pages/Data.jsx'
 import './App.css'
 
 function App() {
@@ -7,7 +9,7 @@ function App() {
 
   return (
     <>
-      <StickyHeadTable/>
+      <Data /> 
     </>
   )
 }
