@@ -33,6 +33,10 @@ function expandCommaSeparated(row) {
   const values = {
     users_ai: row.users_ai?.split(',') || [],
     users_si: row.users_si?.split(',') || [],
+    ai_hod: row.ai_hod?.split(',') || [],
+    si_hod: row.si_hod?.split(',') || [],
+    mail_id_ai_missing: row.mail_id_ai_missing?.split(',') || [],
+    si: row.si?.split(',') || [],
   };
 
   // determine which column has most rows
@@ -44,10 +48,10 @@ function expandCommaSeparated(row) {
     newRows.push({
       users_ai: values.users_ai[i] ?? null,
       users_si: values.users_si[i] ?? null,
-      ai_hod: i === 0 ? row.ai_hod : null,
-      si_hod: i === 0 ? row.si_hod : null,
-      mail_id_ai_missing: i === 0 ? row.mail_id_ai_missing : null,
-      si: i === 0 ? row.si : null
+      ai_hod: values.ai_hod[i] ?? null,
+      si_hod: values.si_hod[i] ?? null,
+      mail_id_ai_missing: values.mail_id_ai_missing[i] ?? null,
+      si: values.si[i] ?? null,
     });
   }
 
@@ -57,8 +61,9 @@ function expandCommaSeparated(row) {
 function Row({ row, tableRows, setTableRows }) {
   // const { row } = props;
   // const [open, setOpen] = React.useState(false);
-  const [isEditing, setIsEditing] = React.useState(false)
-  const [editedValues, setEditedValues] = React.useState(null)
+  console.log(row);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [editedValues, setEditedValues] = React.useState(null);
 
   const handleEdit = () => {
     const expandedRows = expandCommaSeparated(row);
@@ -67,19 +72,23 @@ function Row({ row, tableRows, setTableRows }) {
   }
 
   const handleSave = () => {
-    if(!editedValues || editedValues.length === 0){
-      setIsEditing(false);
-      return;
-    }
+
+    // const expandedRows = expandCommaSeparated(row);
+    // setEditedValues(expandedRows);
+
+    // if(!editedValues || editedValues.length === 0){
+    //   setIsEditing(false);
+    //   return;
+    // }
 
     const updatedRow = {
       ...row,
       users_ai: editedValues.map(r => r.users_ai).filter(Boolean).join(", "),
       users_si: editedValues.map(r => r.users_si).filter(Boolean).join(", "),
-      ai_hod: editedValues.find(r => r.ai_hod)?.ai_hod || row.ai_hod,
-      si_hod: editedValues.find(r => r.si_hod)?.si_hod || row.si_hod,
-      mail_id_ai_missing: editedValues.find(r => r.mail_id_ai_missing)?.mail_id_ai_missing || row.mail_id_ai_missing,
-      si: editedValues.find(r => r.si)?.si || row.si,
+      ai_hod: editedValues.map(r => r.ai_hod).filter(Boolean).join(", "),
+      si_hod: editedValues.map(r => r.si_hod).filter(Boolean).join(", "),
+      mail_id_ai_missing: editedValues.map(r => r.mail_id_ai_missing).filter(Boolean).join(", "),
+      si: editedValues.map(r => r.si).filter(Boolean).join(", "),
     };
 
     setTableRows(prev => 
@@ -105,10 +114,18 @@ function Row({ row, tableRows, setTableRows }) {
         <TableCell>
           <TruncatedCell text={row.users_si} maxLength={25}/>
         </TableCell>
-        <TableCell>{row.ai_hod}</TableCell>
-        <TableCell>{row.si_hod}</TableCell>
-        <TableCell>{row.mail_id_ai_missing}</TableCell>
-        <TableCell>{row.si}</TableCell>
+        <TableCell>
+          <TruncatedCell text={row.ai_hod} maxLength={25}/>
+        </TableCell>
+        <TableCell>
+          <TruncatedCell text={row.si_hod} maxLength={25}/>
+        </TableCell>
+        <TableCell>
+          <TruncatedCell text={row.mail_id_ai_missing} maxLength={25}/>
+        </TableCell>
+        <TableCell>
+          <TruncatedCell text={row.si} maxLength={25}/>
+        </TableCell>
         <TableCell>
           {
             isEditing ? (
@@ -172,7 +189,13 @@ export default function CollapsibleTable({ searchQuery }) {
 
   return (
     <TableContainer component={Paper}>
-      <Table aria-label="collapsible table">
+      <Table 
+        aria-label="collapsible table" 
+        sx={{
+          border:"1px solid #ccc",
+          borderRadius: "4px",
+          overflow: "hidden"
+        }}>
         <TableHead>
           <TableRow>
             <TableCell>ID</TableCell>
@@ -183,7 +206,7 @@ export default function CollapsibleTable({ searchQuery }) {
             <TableCell>SI_HOD</TableCell>
             <TableCell>MAIL_ID_AI_Missing</TableCell>
             <TableCell>SI</TableCell>
-            <TableCell>Edit</TableCell>
+            <TableCell>Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>

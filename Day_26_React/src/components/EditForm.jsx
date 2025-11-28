@@ -1,15 +1,20 @@
 import React from "react";
-import { Typography } from "@mui/material";
+import { Button, IconButton, Typography } from "@mui/material";
 import {Table, TableHead, TableBody, TableCell, TableRow, Box} from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete"
 
 function expandCommaSeparated(row) {
   const values = {
     users_ai: row.users_ai?.split(',') || [],
     users_si: row.users_si?.split(',') || [],
+    ai_hod: row.ai_hod?.split(',') || [],
+    si_hod: row.si_hod?.split(',') || [],
+    mail_id_ai_missing: row.mail_id_ai_missing?.split(',') || [],
+    si: row.si?.split(',') || [],
   };
 
   // determine which column has most rows
-  const maxLength = Math.max(values.users_ai.length, values.users_si.length);
+  const maxLength = Math.max(values.users_ai.length, values.users_si.length, values.ai_hod.length, values.si_hod.length, values.mail_id_ai_missing.length, values.si.length);
 
   const newRows = [];
 
@@ -17,10 +22,10 @@ function expandCommaSeparated(row) {
     newRows.push({
       users_ai: values.users_ai[i] ?? null,
       users_si: values.users_si[i] ?? null,
-      ai_hod: i === 0 ? row.ai_hod : null,
-      si_hod: i === 0 ? row.si_hod : null,
-      mail_id_ai_missing: i === 0 ? row.mail_id_ai_missing : null,
-      si: i === 0 ? row.si : null
+      ai_hod: values.ai_hod[i] ?? null,
+      si_hod: values.si_hod[i] ?? null,
+      mail_id_ai_missing: values.mail_id_ai_missing[i] ?? null,
+      si: values.si[i] ?? null
     });
   }
 
@@ -39,10 +44,34 @@ export default function EditForm({ row, onChange }) {
     onChange(updated)
   };
 
+  const handleAddRow = () => {
+    const newRow = {
+      users_ai: "",
+      users_si: "",
+      ai_hod: "",
+      si_hod: "",
+      mail_id_ai_missing: "",
+      si: "",
+    }
+
+    const updated = [...formRows, newRow];
+    setFormRows(updated)
+    onChange(updated)
+  }
+
+  const handleDeleteRow = (index) => {
+    const updated = formRows.filter((_, i) => i !== index);
+    setFormRows(updated);
+    onChange(updated)
+  }
+
   return (
     <>
       <Typography variant="h6">Edit Values</Typography>
-
+      <Button variant="outlined" size="small" onClick={handleAddRow}>
+        Add Row
+      </Button>
+      
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -52,6 +81,7 @@ export default function EditForm({ row, onChange }) {
             <TableCell>SI HOD</TableCell>
             <TableCell>Mail ID AI Missing</TableCell>
             <TableCell>SI</TableCell>
+            <TableCell>Delete</TableCell>
           </TableRow>
         </TableHead>
 
@@ -101,10 +131,16 @@ export default function EditForm({ row, onChange }) {
                   onChange={(e) => handleChange(index, 'si', e.target.value)}
                 />
               </TableCell>
+              <TableCell>
+                <IconButton size="small" color="error" onClick={() => handleDeleteRow(index)}>
+                  <DeleteIcon/>
+                </IconButton>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      
     </>
   );
 }
