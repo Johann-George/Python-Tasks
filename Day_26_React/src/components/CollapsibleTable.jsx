@@ -42,8 +42,6 @@ function expandCommaSeparated(row) {
   // determine which column has most rows
   const maxLength = Math.max(values.users_ai.length, values.users_si.length, values.ai_hod.length, values.si_hod.length, values.mail_id_ai_missing.length, values.si.length);
 
-  const newRows = [];
-
   for (let i = 0; i < maxLength; i++) {
     newRows.push({
       users_ai: values.users_ai[i] ?? null,
@@ -59,8 +57,7 @@ function expandCommaSeparated(row) {
 }
 
 function Row({ row, tableRows, setTableRows }) {
-  // const { row } = props;
-  // const [open, setOpen] = React.useState(false);
+
   console.log(row);
   const [isEditing, setIsEditing] = React.useState(false);
   const [editedValues, setEditedValues] = React.useState(null);

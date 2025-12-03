@@ -1,15 +1,20 @@
-import { useState } from 'react'
-import StickyHeadTable from './components/StickyHeadTable.jsx'
-import Grid from '@mui/material/Grid'
-import Data from './pages/Data.jsx'
 import './App.css'
+import { useNavigation, Outlet } from 'react-router-dom'
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
 function App() {
-  const [count, setCount] = useState(0)
 
+  const navigation = useNavigation();
   return (
     <>
-      <Data /> 
+      {navigation.state === "loading" ? (
+        <Box sx={{ display: 'flex' }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Outlet />
+      )}
     </>
   )
 }
