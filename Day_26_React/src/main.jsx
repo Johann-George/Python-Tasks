@@ -8,7 +8,7 @@ import { mailmatrix } from './pages/mailmatrix.js'
 
 const routeDefinitions = createRoutesFromElements(
   <Route path='/' element={<App/>}>
-    <Route index element={<Data/>} action={mailmatrix}/>
+    <Route index element={<Data/>} loader={mailmatrix}/>
   </Route>
 )
 

@@ -16,18 +16,6 @@ import TruncatedCell from './TruncatedCell';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 
-function createData(id, location, users_ai, users_si, ai_hod, si_hod, mail_id_ai_missing, si) {
-  return {
-    id,
-    location,
-    users_ai,
-    users_si,
-    ai_hod,
-    si_hod,
-    mail_id_ai_missing,
-    si,
-  };
-}
 
 function expandCommaSeparated(row) {
   const values = {
@@ -41,6 +29,8 @@ function expandCommaSeparated(row) {
 
   // determine which column has most rows
   const maxLength = Math.max(values.users_ai.length, values.users_si.length, values.ai_hod.length, values.si_hod.length, values.mail_id_ai_missing.length, values.si.length);
+
+  const newRows = []
 
   for (let i = 0; i < maxLength; i++) {
     newRows.push({
@@ -65,7 +55,7 @@ function Row({ row, tableRows, setTableRows }) {
   const handleEdit = () => {
     const expandedRows = expandCommaSeparated(row);
     setEditedValues(expandedRows);
-    setIsEditing(true)
+    setIsEditing(true);
   }
 
   const handleSave = () => {
@@ -168,17 +158,10 @@ Row.propTypes = {
   }).isRequired,
 };
 
-const rows = [
-  createData(30, 'PNQ', 'anju.mallika@quadance.com, anandu.madhu@quadance.com', 'yamini.maa@flyjaclogistics.com,kamalgk@flyjaclogistics.com,alagar.maa@flyjaclogistics.com', 'mohammed.shameer@quadance.com', 'sonia.pnq@flyjaclogistics.com', null, null),
-  createData(31, 'HYD', 'anju.mallika@quadance.com, anandu.madhu@quadance.com', 'yamini.maa@flyjaclogistics.com,kamalgk@flyjaclogistics.com,alagar.maa@flyjaclogistics.com', 'mohammed.shameer@quadance.com', 'fjlhyd@flyjaclogistics.com', null, null),
-  createData(32, 'COK', 'anju.mallika@quadance.com, anandu.madhu@quadance.com', 'yamini.maa@flyjaclogistics.com,kamalgk@flyjaclogistics.com,alagar.maa@flyjaclogistics.com', 'mohammed.shameer@quadance.com', 'impcord.cok@flyjaclogistics.com', null, null),
-  createData(33, 'CJB', 'anju.mallika@quadance.com, anandu.madhu@quadance.com', 'yamini.maa@flyjaclogistics.com,kamalgk@flyjaclogistics.com,alagar.maa@flyjaclogistics.com', 'mohammed.shameer@quadance.com', 'rathnapriya.cbe@flyjaclogistics.com', null, null),
-  createData(34, 'GOI', 'anju.mallika@quadance.com, anandu.madhu@quadance.com', 'yamini.maa@flyjaclogistics.com,kamalgk@flyjaclogistics.com,alagar.maa@flyjaclogistics.com', 'mohammed.shameer@quadance.com', 'vithal.goa@flyjaclogistics.com', null, null),
-];
 
-export default function CollapsibleTable({ searchQuery }) {
+export default function CollapsibleTable({ searchQuery, data }) {
 
-  const [tableRows, setTableRows] = React.useState(rows)
+  const [tableRows, setTableRows] = React.useState(data)
 
   const filteredRows = tableRows.filter((row) => {
     return row.location.toLowerCase().includes(searchQuery.toLowerCase())
